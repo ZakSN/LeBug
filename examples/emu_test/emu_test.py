@@ -2,6 +2,7 @@ import sys
 sys.path.insert(1, '../../src/')
 from emulator.emulator import emulatedHw
 from hardware.hardware import rtlHw
+from software.deltaDecompressor import deltaDecompressor
 import firmware.firmware as firm
 import math, yaml
 import numpy as np
@@ -18,7 +19,7 @@ def toInt(lst):
 
 def testSimpleDistribution():
     # Instantiate processor
-    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS)
+    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS)
 
     # Initial hardware setup
     proc.fu.vrf=list(range(FUVRF_SIZE*M)) # Initializing fuvrf
@@ -33,7 +34,12 @@ def testSimpleDistribution():
     # Step through it until we get the result
     proc.config(fw)
     log = proc.run()
-    assert np.allclose(log['tb'][-1][0],[ 1.,2.,1.,0.,1.,1.,1.,1.]), "Test with distribution failed"
+
+    # Decompress the tracebuffer
+    dd = deltaDecompressor(N,DATA_WIDTH,DELTA_SLOTS,TB_SIZE)
+    decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+
+    assert np.allclose(decomp_tb[-1],[ 1,2,1,0,1,1,1,1]), "Test with distribution failed"
     print("Passed test #1")
 
 testSimpleDistribution()
@@ -41,7 +47,7 @@ testSimpleDistribution()
 def testDualDistribution():
 
     # Instantiate processor
-    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS)
+    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS)
 
     # Initial hardware setup
     proc.fu.vrf=list(range(FUVRF_SIZE*M)) # Initializing fuvrf
@@ -59,7 +65,12 @@ def testDualDistribution():
     # Step through it until we get the result
     proc.config(fw)
     log = proc.run()
-    assert np.allclose(log['tb'][-1][0],[ 2.,5.,1.,0.,2.,2.,2.,2.]), "Test with dual distribution failed"
+
+    # Decompress the tracebuffer
+    dd = deltaDecompressor(N,DATA_WIDTH,DELTA_SLOTS,TB_SIZE)
+    decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+
+    assert np.allclose(decomp_tb[-1],[ 2.,5.,1.,0.,2.,2.,2.,2.]), "Test with dual distribution failed"
     print("Passed test #2")
 
 testDualDistribution()
@@ -67,7 +78,7 @@ testDualDistribution()
 def testSummaryStats():
 
     # Instantiate processor
-    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS)
+    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS)
 
     proc.fu.vrf=list(np.concatenate(([0.,float('inf')],list(reversed(range(FUVRF_SIZE*M-2)))))) # Initializing fuvrf for sparsity
     fw = firm.summaryStats(proc.compiler)
@@ -95,11 +106,11 @@ def testSummaryStats():
 
 testSummaryStats()
 
-    
+
 def testSpatialSparsity():
 
     # Instantiate processor
-    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS)
+    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS)
     proc.fu.vrf=list(np.concatenate(([0.,float('inf')],list(reversed(range(FUVRF_SIZE*M-2)))))) # Initializing fuvrf for sparsity
     fw = firm.spatialSparsity(proc.compiler,N)
 
@@ -114,8 +125,13 @@ def testSpatialSparsity():
     # Step through it until we get the result
     proc.config(fw)
     log = proc.run()
-    assert np.isclose(log['tb'][-1][0],[ 1.,1.,1.,1.,0.,1.,0.,1.]).all(), "Spatial Sparsity Failed"
-    assert np.isclose(log['tb'][-1][1],[ 1.,0.,1.,1.,1.,1.,0.,0.]).all(), "Spatial Sparsity Failed"
+
+    # Decompress the tracebuffer
+    dd = deltaDecompressor(N,DATA_WIDTH,DELTA_SLOTS,TB_SIZE)
+    decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+
+    assert np.allclose(decomp_tb[0],[ 1.,1.,1.,1.,0.,1.,0.,1.]), "Spatial Sparsity Failed"
+    assert np.allclose(decomp_tb[1],[ 1.,0.,1.,1.,1.,1.,0.,0.]), "Spatial Sparsity Failed"
     print("Passed test #4")
 
 testSpatialSparsity()
@@ -124,7 +140,7 @@ testSpatialSparsity()
 def testCorrelation():
 
     # Instantiate processor
-    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS)
+    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS)
     fw = firm.correlation(proc.compiler)
 
     # Feed one value to input buffer
@@ -157,7 +173,7 @@ testCorrelation()
 def testVectorChange():
 
     # Instantiate processor
-    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS)
+    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS)
     fw = firm.vectorChange(proc.compiler)
 
     # Feed value to input buffer

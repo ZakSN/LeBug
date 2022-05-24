@@ -1,5 +1,6 @@
 from copy import deepcopy as copy
 import yaml
+import numpy as np
 
 ''' C-like struct '''
 class struct:
@@ -43,3 +44,50 @@ def decode(value,DATA_WIDTH):
     if is_negative:
         value = -((1<<DATA_WIDTH) - value)
     return value / (1 << frac_bits)
+
+''' Maximum two's complement number that fits in n bits'''
+def twos_complement_max(n):
+    return int((2**(n-1)) - 1)
+
+''' Minimum two's complement number that fits in n bits'''
+def twos_complement_min(n):
+    return int(-1*(2**(n-1)))
+
+''' Two's complement sign extension, vectorized from: 
+    https://stackoverflow.com/questions/38803320/sign-extending-from-a-variable-bit-width '''
+def sign_extend(x, b):
+    return np.piecewise(x, x&(1<<(b-1)),
+        [lambda z: z-(1<<b), lambda z: z])
+
+''' Check that a numpy vector is the correct shape and has elements in the
+    correct ranges '''
+def assert_vector_size(vector, num_elements, element_min, element_max):
+    assert len(vector) == num_elements, "vector wrong size"
+    assert np.all(vector>=element_min), str(vector)+" has element smaller than: "+str(element_min)
+    assert np.all(vector<=element_max), str(vector)+" has element larger than: "+str(element_max)
+
+''' Simple rollover counter, increment d between 0 and r, unless direction is
+    set in which case decrement d'''
+def rollover_counter(d, r, direction=None):
+    if direction == None:
+        d = d + 1
+    else:
+        d = d - 1
+    if (0 <= d) and (d < r):
+        return d
+    elif direction == None:
+        return 0
+    else:
+        return r - 1
+
+''' Compression flag buffer compressed/uncompressed flag constants '''
+UNCOMPRESSED = 1
+COMPRESSED = 0
+
+''' Create an n bit no data symbol '''
+def n_bit_nodata(DELTA_SLOTS, PRECISION, INV):
+    nodata = 0
+    for i in range(DELTA_SLOTS):
+        nodata = nodata << PRECISION
+        nodata = nodata | (INV & (2**PRECISION-1))
+    return nodata

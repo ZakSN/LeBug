@@ -11,6 +11,7 @@ from emulator.matrix_vector_reduce import MatrixVectorReduce
 from emulator.vector_scalar_reduce import VectorScalarReduce
 from emulator.vector_vector_alu import VectorVectorALU
 from emulator.data_packer import DataPacker
+from emulator.delta_compressor import DeltaCompressor
 from emulator.trace_buffer import TraceBuffer
 
 # Setting Debug level (can be debug, info, warning, error and critical)
@@ -42,9 +43,12 @@ class emulatedHw():
             elif b=='DataPacker':
                 packed_data = self.dp.step(chain)
                 self.log['dp'].append(packed_data)
+            elif b=='DeltaCompressor':
+                compressed_data = self.dc.step(packed_data)
+                self.log['dc'].append((compressed_data, self.dc.last_reg))
             elif b=='TraceBuffer':
-                self.tb.step(packed_data)
-                self.log['tb'].append(self.tb.mem)
+                self.tb.step(compressed_data)
+                self.log['tb'].append((self.tb.tbuffer, self.tb.cfbuffer, self.tb.tbptr))
             else:
                 assert False, "Unknown building block "+b
 
@@ -80,11 +84,16 @@ class emulatedHw():
             self.step()
         return self.log
 
-    def __init__(self,N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS):
+    def __init__(self,N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,
+                 BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS):
         ''' Verifying parameters '''
         assert math.log(N, 2).is_integer(), "N must be a power of 2" 
         assert math.log(M, 2).is_integer(), "N must be a power of 2" 
         assert M<=N, "M must be less or equal to N" 
+        assert DATA_WIDTH%DELTA_SLOTS == 0, "data width must be divisible by delta slots"
+
+        PRECISION = int(DATA_WIDTH/DELTA_SLOTS)
+        INV = twos_complement_min(PRECISION)
 
         # hardware building blocks   
         self.BUILDING_BLOCKS=BUILDING_BLOCKS
@@ -95,11 +104,12 @@ class emulatedHw():
         self.vsru = VectorScalarReduce(N)
         self.vvalu= VectorVectorALU(N,VVVRF_SIZE)
         self.dp   = DataPacker(N,M)
-        self.tb   = TraceBuffer(N,TB_SIZE)
+        self.dc   = DeltaCompressor(N,DATA_WIDTH,DELTA_SLOTS,INV)
+        self.tb   = TraceBuffer(N,TB_SIZE,DELTA_SLOTS,PRECISION,INV)
         self.config()
 
         # Firmware compiler
         self.compiler = compiler(N,M,MAX_CHAINS)
 
         # used to simulate a trace buffer to match results with simulation
-        self.log={k: [] for k in ['ib','fu','mvru','vsru','vvalu','dp','tb']}
+        self.log={k: [] for k in ['ib','fu','mvru','vsru','vvalu','dp','dc','tb']}

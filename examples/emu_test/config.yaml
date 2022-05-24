@@ -10,6 +10,8 @@ FUVRF_SIZE: 4   # Size of FUVRF in M*elements
 VVVRF_SIZE: 8   # Size of VVVRF in N*elements
 TB_SIZE: 64     # Size of Trace Buffer in N*elements
 MAX_CHAINS: 8   # Maximum number of chains of the firmware
+DATA_WIDTH: 32  # Number of bits to encode each vector element
+DELTA_SLOTS: 4  # Maximum number of deltas to compress into one word
 
 # Define how building blocks are connected
 BUILDING_BLOCKS: 
@@ -18,6 +20,7 @@ BUILDING_BLOCKS:
     - VectorVectorALU
     - VectorScalarReduce
     - DataPacker
+    - DeltaCompressor
     - TraceBuffer
 
 # Define the initial firmware (see complete list at src/firmware/firmware.py)

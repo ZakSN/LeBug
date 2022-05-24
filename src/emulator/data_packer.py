@@ -34,7 +34,7 @@ class DataPacker():
                 self.v_out = np.append(self.v_out,self.v_in[:cfg.size])
             self.v_out_size=self.v_out_size+cfg.size
             if self.v_out_size==self.N:
-                log.debug('Data Packer full. Pushing values to Trace Buffer')
+                log.debug('Data Packer full. Pushing values to Delta Compressor')
                 self.v_out_valid=1
                 self.v_out_size = 0
             else:
