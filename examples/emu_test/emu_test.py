@@ -2,7 +2,7 @@ import sys
 sys.path.insert(1, '../../src/')
 from emulator.emulator import emulatedHw
 from hardware.hardware import rtlHw
-from software.deltaDecompressor import deltaDecompressor
+from software.delta_decompressor import DeltaDecompressor
 import firmware.firmware as firm
 import math, yaml
 import numpy as np
@@ -60,7 +60,7 @@ class TestEmulator(unittest.TestCase):
         log = proc.run()
 
         # Decompress the tracebuffer
-        dd = deltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
+        dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
 
         # Test distribution
@@ -89,7 +89,7 @@ class TestEmulator(unittest.TestCase):
         log = proc.run()
 
         # Decompress the tracebuffer
-        dd = deltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
+        dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
 
         # Test dual distribution
@@ -146,7 +146,7 @@ class TestEmulator(unittest.TestCase):
         log = proc.run()
 
         # Decompress the tracebuffer
-        dd = deltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
+        dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
 
         # Test spatial sparsity
@@ -245,7 +245,7 @@ class TestEmulator(unittest.TestCase):
         log = proc.run()
 
         # Decompress the tracebuffer
-        dd = deltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
+        dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
 
         # should get the same out, except truncated since the TB has rolled over

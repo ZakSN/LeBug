@@ -1,7 +1,7 @@
 import numpy as np
 from misc.misc import *
 
-class deltaDecompressor():
+class DeltaDecompressor():
     def __init__(self,N,DATA_WIDTH,DELTA_SLOTS,TB_SIZE):
         self.N = N
         assert DATA_WIDTH%DELTA_SLOTS == 0, "data width must be divisible by delta slots"
