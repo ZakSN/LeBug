@@ -193,3 +193,69 @@ def testVectorChange():
     print("Passed test #6")
 
 testVectorChange()
+
+def testDeltaCompression():
+
+    # Instantiate processor
+    proc = emulatedHw(N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS)
+    fw = firm.raw(proc.compiler)
+
+    # some values to compress/decompress
+    frame_in = np.array([
+        [1, 2, 3, 4, 5, 6, 7, 8],
+        [2, 3, 4, 5, 6, 7, 8, 9],
+        [3, 4, 5, 6, 7, 8, 9, 10],
+        [4, 5, 6, 7, 8, 8, 10, 110000],
+        [5, 6, 7, 8, 9, 10, 11, 12],
+        [6, 7, 8, 9, 10, 11, 12, 13],
+        [7, 8, 9, 10, 11, 12, 13, 14],
+        [8, 9, 10, 11, 12, 13, 14, 15],
+        [1, 2, 3, 4, 5, 6, 7, 8],
+        [2, 3, 4, 5, 6, 7, 8, 9],
+        [3, 4, 5, 6, 7, 8, 9, 10],
+        [4, 5, 6, 7, 8, 8, 10, 110000],
+        [5, 6, 7, 8, 9, 10, 11, 110001],
+        [6, 7, 8, 9, 10, 11, 12, 110002],
+        [7, 8, 9, 10, 11, 12, 13, 14],
+        [8, 9, 10, 11, 12, 13, 14, 15],
+    ])
+
+    proc.config(fw)
+
+    # push the frame in
+    for f in range(frame_in.shape[0]-1):
+        proc.push([frame_in[f],False])
+
+    # push the last value with EOF set
+    proc.push([frame_in[-1],True])
+
+    # run the pipeline
+    log = proc.run()
+
+    # Decompress the tracebuffer
+    dd = deltaDecompressor(N,DATA_WIDTH,DELTA_SLOTS,TB_SIZE)
+    decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+
+    # should get the same out, except truncated since the TB has rolled over
+    frame_out = np.array([
+        [3, 4, 5, 6, 7, 8, 9, 10],
+        [4, 5, 6, 7, 8, 8, 10, 110000],
+        [5, 6, 7, 8, 9, 10, 11, 12],
+        [6, 7, 8, 9, 10, 11, 12, 13],
+        [7, 8, 9, 10, 11, 12, 13, 14],
+        [8, 9, 10, 11, 12, 13, 14, 15],
+        [1, 2, 3, 4, 5, 6, 7, 8],
+        [2, 3, 4, 5, 6, 7, 8, 9],
+        [3, 4, 5, 6, 7, 8, 9, 10],
+        [4, 5, 6, 7, 8, 8, 10, 110000],
+        [5, 6, 7, 8, 9, 10, 11, 110001],
+        [6, 7, 8, 9, 10, 11, 12, 110002],
+        [7, 8, 9, 10, 11, 12, 13, 14],
+        [8, 9, 10, 11, 12, 13, 14, 15],
+    ])
+
+    assert np.all(decomp_tb == frame_out), "raw compression test failed"
+
+    print("Passed test #7")
+
+testDeltaCompression()
