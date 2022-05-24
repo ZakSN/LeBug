@@ -34,15 +34,12 @@ class TestCompression(unittest.TestCase):
                 # in this case at least one element must be outside of +/- delta
                 # of the previous vector
 
-                # FIXME: find a better way of doing this
-                delta_vector = np.random.randint(data_min, data_max + 1, (1, n))
-                acceptable = False
-                while not acceptable:
-                    try:
-                        assert np.any(delta_vector < delta_min) or np.any(delta_vector > delta_max)
-                        acceptable = True
-                    except AssertionError:
-                        acceptable = False
+                delta_vector = np.random.randint(data_min-delta_min, data_max-delta_max + 1, (1, n))
+                delta_vector = np.where(
+                                   delta_vector>0,
+                                   delta_vector+np.full((1,n), delta_max + 1),
+                                   delta_vector-np.full((1,n), delta_min - 1)
+                               )
             else:
                 # add a compressible vector
                 # in this case all elements must be within +/-delta of the
@@ -74,18 +71,14 @@ class TestCompression(unittest.TestCase):
         # vectors must occur in the same order.
         # if the input is much longer than the tracebuffer (or if compression is
         # low) the tracebuffer may rollover many times, meaning that the sequence
-        # of compressed data may not start with the first item in the input frame
-        start_idx = 0
+        # of compressed data may not start with the first item in the input frame.
+        # therefore we step through the input and look for a place where all of
+        # the decompressed data matches.
         for i in range(fin.shape[0]):
-            # FIXME: assuming that the same data never occurs twice in the input
-            if np.all(fin[i] == fout[0]):
-                start_idx = i
-                break
-        for i in range(start_idx, fout.shape[0]):
-            eq = np.all(fout[i] == fin[i])
-            if not eq:
-                return False
-        return True
+            eq = np.all(fout[:] == fin[i:fout.shape[0]+i])
+            if eq:
+                return True
+        return False
 
     def compression_ratio(self, v_nodata, compressed, decompressed):
         '''
@@ -104,12 +97,7 @@ class TestCompression(unittest.TestCase):
         # ideal compression ratio is DELTA_SLOTS:1
         return decompressed.shape[0]/full_addrs
 
-    def test_basicFunctionality(self):
-        # set parameters
-        N = 8
-        TB_SIZE = 64
-        DATA_WIDTH = 32
-        DELTA_SLOTS = 4
+    def basic_functionality(self,N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,frame_length):
         PRECISION = int(DATA_WIDTH/DELTA_SLOTS)
         INV = twos_complement_min(PRECISION)
 
@@ -121,7 +109,6 @@ class TestCompression(unittest.TestCase):
         dd = DeltaDecompressor(N,DATA_WIDTH,DELTA_SLOTS,TB_SIZE)
 
         # create an input frame
-        frame_length = 1024
         frame_in = self.build_frame(frame_length, N, DATA_WIDTH, PRECISION, p_compress=0.9)
 
         # feed the frame into the dc->tb emulator:
@@ -140,12 +127,49 @@ class TestCompression(unittest.TestCase):
 
         # ensure that the decompressed data matches the input data:
         self.assertTrue(self.check_frame_equality(frame_in, frame_out))
-        # ensure that the compressed data did not take more space than the
-        # decompressed data
+
         v_nodata = np.full((1, N), n_bit_nodata(DELTA_SLOTS, PRECISION, INV))
         cr = self.compression_ratio(v_nodata, tbuffer, frame_out)
         print(cr)
+
+        # ensure that the compressed data did not take more space than the
+        # decompressed data
         self.assertTrue(cr >= 1)
+        # ensure that the reported compression ratio does not exceed the theoretical
+        # maximum
+        self.assertTrue(cr <= DELTA_SLOTS)
+
+    @unittest.skip("skipping sweep")
+    def test_param_config(self):
+        '''
+        dummy test for debugging specific parameter configurations
+        '''
+        self.basic_functionality(1,4,8,4,256)
+
+    def test_paramteric_sweep(self):
+        # set parameters for sweep
+        N_param = [1, 2, 4, 8, 16, 32]
+        TB_SIZE_param = [4, 8, 16, 32, 64, 128, 256, 512]
+        # note: trying to use 64bit numbers breaks numpy in annoying ways, since
+        # some bitwise operations produce uint64 and others produce int64, whch
+        # numpy will not do type coersion between. just ignoring for now
+        DATA_WIDTH_param = [8, 16, 32,]# 64]
+        DELTA_SLOTS_param = [2, 4, 8]
+        frame_length_param = [4, 16, 64, 256, 1024]
+
+        for N in N_param:
+            for TB_SIZE in TB_SIZE_param:
+                for DATA_WIDTH in DATA_WIDTH_param:
+                    for DELTA_SLOTS in DELTA_SLOTS_param:
+                        for frame_length in frame_length_param:
+                            msg = "N="+str(N)+"\n"\
+                                 +"TB_SIZE="+str(TB_SIZE)+"\n"\
+                                 +"DATA_WIDTH="+str(DATA_WIDTH)+"\n"\
+                                 +"DELTA_SLOTS="+str(DELTA_SLOTS)+"\n"\
+                                 +"frame_length="+str(frame_length)+"\n"
+                            with self.subTest(msg=msg):
+                                self.basic_functionality(N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,frame_length)
+
 
 if __name__=="__main__":
     unittest.main()
