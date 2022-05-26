@@ -27,6 +27,11 @@ class DeltaDecompressor():
         stop = tbptr
         decompressed = np.array([last_reg])
 
+        # check to see if the tracebuffer is empty and return last reg only
+        nodata = n_bit_nodata(self.DELTA_SLOTS, self.PRECISION, self.INV)
+        if np.all(tbuffer == nodata):
+            return decompressed.astype(int)
+
         # The following ought to be a do-while, but python doesn't have
         # this structure
         while True:
