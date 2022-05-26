@@ -906,7 +906,7 @@ class rtlHw():
                 print("Opening GUI\n\tMake sure to open socket using this command on your mac:\n\tsocat TCP-LISTEN:6000,reuseaddr,fork UNIX-CLIENT:\\\"$DISPLAY\\\"")
             elif sys.platform=="linux":
                 print("Opening GUI, Linux detected\n\tMake sure to run this command:\n\txhost local:`whoami`")
-                modelsim.exec('vsim -gui -do "run -all" testbench',working_directory='/rtl')
+            modelsim.exec('vsim -gui -do "run -all" testbench',working_directory='/rtl')
         else:
             modelsim.exec('vsim -c -do "run -all" testbench',working_directory='/rtl')
         modelsim.copy('modelsim:/rtl/simulation_results.txt','simulation_results.txt')
