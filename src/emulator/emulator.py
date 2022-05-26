@@ -85,7 +85,7 @@ class emulatedHw():
         return self.log
 
     def __init__(self,N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,
-                 BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS):
+                 BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS,**kwargs):
         ''' Verifying parameters '''
         assert math.log(N, 2).is_integer(), "N must be a power of 2" 
         assert math.log(M, 2).is_integer(), "N must be a power of 2" 

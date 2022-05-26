@@ -18,6 +18,7 @@ class TestEmulator(unittest.TestCase):
     def setUp(self):
         with open(r'config.yaml') as file:
             yaml_dict = yaml.load(file, Loader=yaml.FullLoader)
+        self.emu_cfg = yaml_dict
         self.N = yaml_dict['N']
         self.M = yaml_dict['M']
         self.IB_DEPTH = yaml_dict['IB_DEPTH']
@@ -28,22 +29,10 @@ class TestEmulator(unittest.TestCase):
         self.BUILDING_BLOCKS = yaml_dict['BUILDING_BLOCKS']
         self.DATA_WIDTH = yaml_dict['DATA_WIDTH']
         self.DELTA_SLOTS = yaml_dict['DELTA_SLOTS']
-        self.emu_cfg = (
-            self.N,
-            self.M,
-            self.IB_DEPTH,
-            self.FUVRF_SIZE,
-            self.VVVRF_SIZE,
-            self.TB_SIZE,
-            self.MAX_CHAINS,
-            self.BUILDING_BLOCKS,
-            self.DATA_WIDTH,
-            self.DELTA_SLOTS,
-        )
 
     def test_SimpleDistribution(self):
         # Instantiate processor
-        proc = emulatedHw(*self.emu_cfg)
+        proc = emulatedHw(**self.emu_cfg)
 
         # Initial hardware setup
         proc.fu.vrf=list(range(self.FUVRF_SIZE*self.M)) # Initializing fuvrf
@@ -69,7 +58,7 @@ class TestEmulator(unittest.TestCase):
     def test_DualDistribution(self):
 
         # Instantiate processor
-        proc = emulatedHw(*self.emu_cfg)
+        proc = emulatedHw(**self.emu_cfg)
 
         # Initial hardware setup
         proc.fu.vrf=list(range(self.FUVRF_SIZE*self.M)) # Initializing fuvrf
@@ -98,7 +87,7 @@ class TestEmulator(unittest.TestCase):
     def test_SummaryStats(self):
 
         # Instantiate processor
-        proc = emulatedHw(*self.emu_cfg)
+        proc = emulatedHw(**self.emu_cfg)
 
         proc.fu.vrf=list(np.concatenate(([0.,float('inf')],list(reversed(range(self.FUVRF_SIZE*self.M-2)))))) # Initializing fuvrf for sparsity
         fw = firm.summaryStats(proc.compiler)
@@ -129,7 +118,7 @@ class TestEmulator(unittest.TestCase):
     def test_SpatialSparsity(self):
 
         # Instantiate processor
-        proc = emulatedHw(*self.emu_cfg)
+        proc = emulatedHw(**self.emu_cfg)
         proc.fu.vrf=list(np.concatenate(([0.,float('inf')],list(reversed(range(self.FUVRF_SIZE*self.M-2)))))) # Initializing fuvrf for sparsity
         fw = firm.spatialSparsity(proc.compiler,self.N)
 
@@ -156,7 +145,7 @@ class TestEmulator(unittest.TestCase):
     def test_Correlation(self):
 
         # Instantiate processor
-        proc = emulatedHw(*self.emu_cfg)
+        proc = emulatedHw(**self.emu_cfg)
         fw = firm.correlation(proc.compiler)
 
         # Feed one value to input buffer
@@ -188,7 +177,7 @@ class TestEmulator(unittest.TestCase):
     def test_VectorChange(self):
 
         # Instantiate processor
-        proc = emulatedHw(*self.emu_cfg)
+        proc = emulatedHw(**self.emu_cfg)
         fw = firm.vectorChange(proc.compiler)
 
         # Feed value to input buffer
@@ -209,7 +198,7 @@ class TestEmulator(unittest.TestCase):
     def test_DeltaCompression(self):
 
         # Instantiate processor
-        proc = emulatedHw(*self.emu_cfg)
+        proc = emulatedHw(**self.emu_cfg)
         fw = firm.raw(proc.compiler)
 
         # some values to compress/decompress
