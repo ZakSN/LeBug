@@ -8,11 +8,6 @@ import math, yaml
 import numpy as np
 import unittest
 
-"""
-def toInt(lst):
-    return [list(map(int, l)) for l in lst]
-"""
-
 class TestEmulator(unittest.TestCase):
     # Read YAML configuration file and declare those as global variables
     def setUp(self):

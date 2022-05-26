@@ -1,5 +1,6 @@
-from compression_utils import CompressionUtils
 import sys
+sys.path.insert(1, '../')
+from test_utils import TestUtils
 sys.path.insert(1, '../../src/')
 from emulator.delta_compressor import DeltaCompressor
 from emulator.trace_buffer import TraceBuffer
@@ -9,7 +10,7 @@ import random
 import numpy as np
 import unittest
 
-class TestCompression(unittest.TestCase, CompressionUtils):
+class TestCompression(unittest.TestCase, TestUtils):
     def basic_functionality(self,N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,frame_length,p):
         PRECISION = int(DATA_WIDTH/DELTA_SLOTS)
         INV = twos_complement_min(PRECISION)

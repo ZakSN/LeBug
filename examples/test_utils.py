@@ -7,7 +7,7 @@ from misc.misc import *
 import random
 import numpy as np
 
-class CompressionUtils():
+class TestUtils():
     def build_frame(self, length, n, data_width, precision, p_compress=0.9, seed=1):
         '''
         Builds a frame (numpy array) of length, n element wide vectors. The

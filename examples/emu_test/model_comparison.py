@@ -1,5 +1,6 @@
-from compression_utils import CompressionUtils
 import sys
+sys.path.insert(1, '../')
+from test_utils import TestUtils
 sys.path.insert(1, '../../src/')
 from emulator.delta_compressor import DeltaCompressor
 from emulator.trace_buffer import TraceBuffer
@@ -10,7 +11,7 @@ import random
 import numpy as np
 import unittest
 
-class TestCompressionModels(unittest.TestCase,CompressionUtils):
+class TestCompressionModels(unittest.TestCase,TestUtils):
     def new_compression_ratio(self,frame_in,N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,INV,PRECISION,frame_length):
         '''
         Calculate the compression ratio for the new compression algorithm.
