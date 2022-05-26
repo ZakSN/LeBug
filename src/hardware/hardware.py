@@ -664,12 +664,12 @@ class rtlHw():
                                     'configData': 'configData_reconfig'}
 
         # Check if building blocks are not breaking any rules
-        if self.BUILDING_BLOCKS[0] != "InputBuffer" or self.BUILDING_BLOCKS[-2]!="DataPacker" or self.BUILDING_BLOCKS[-1]!="TraceBuffer":
+        if self.BUILDING_BLOCKS[0] != "InputBuffer" or self.BUILDING_BLOCKS[-3]!="DataPacker" or self.BUILDING_BLOCKS[-1]!="TraceBuffer":
             assert False, "Building blocks do not follow order currently supported by the hardware generator"
 
         # Automatically connect remaining modules
         prev_block = top.inst.ib
-        for buildingBlock in self.BUILDING_BLOCKS[1:-2]:
+        for buildingBlock in self.BUILDING_BLOCKS[1:-3]:
             if buildingBlock=='FilterReduceUnit':
                 next_block=top.inst.fru
             elif buildingBlock=='VectorScalarReduce':
@@ -960,7 +960,8 @@ class rtlHw():
     def push(self,pushed_values):
         self.testbench_inputs.append(pushed_values)
 
-    def __init__(self,N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,DATA_WIDTH,MAX_CHAINS,BUILDING_BLOCKS,DATA_TYPE,DEVICE_FAM):
+    def __init__(self,N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,DATA_WIDTH,
+                 MAX_CHAINS,BUILDING_BLOCKS,DATA_TYPE,DEVICE_FAM,**kwargs):
         ''' Verifying parameters '''
         assert math.log(N, 2).is_integer(), "N must be a power of 2" 
         assert math.log(M, 2).is_integer(), "N must be a power of 2" 
