@@ -8,22 +8,32 @@ import random
 import numpy as np
 
 class TestUtils():
-    def build_frame(self, length, n, data_width, precision, p_compress=0.9, seed=1):
+    def build_frame(self, length, n, data_width, precision, p_compress=0.9, seed=1, limit=(None,None)):
         '''
         Builds a frame (numpy array) of length, n element wide vectors. The
         elements of each vector are data_width bits long. p_compress
         sets the probability of two adjacent vectors containing elements that
         are at most precision bits different. i.e. p_compress sets the
         probability that two adjacent vectors are compressible
+
+        if the function is given a valid set of limits, ignore compressibility
+        and just generate vectors uniformly in the range set by the limits
         '''
         np.random.seed(seed)
         random.seed(seed)
 
-        data_max = twos_complement_max(data_width)
-        data_min = twos_complement_min(data_width)
         delta_max = twos_complement_max(precision)
         # maximally negative delta reserved for INV symbol
         delta_min = twos_complement_min(precision) + 1
+        if None in limit:
+            data_max = twos_complement_max(data_width)
+            data_min = twos_complement_min(data_width)
+        else:
+            p_compress = 2
+            data_max = max(limit)
+            data_min = min(limit)
+            delta_max = max(limit)
+            delta_min = min(limit)
 
         frame = np.random.randint(data_min, data_max+1, (1, n))
 
@@ -45,8 +55,12 @@ class TestUtils():
                 # previous vector
                 delta_vector = np.random.randint(delta_min, delta_max+1, (1,n))
 
-            # truncate vector elements to data_wdith
-            new_vector = np.clip(frame[-1] + delta_vector, data_min, data_max)
+            if None in limit:
+                # truncate vector elements to data_wdith
+                new_vector = np.clip(frame[-1] + delta_vector, data_min, data_max)
+            else:
+                # if we're given a limit ignore compressibility
+                new_vector = delta_vector
             frame = np.vstack([frame, new_vector])
 
         return frame
