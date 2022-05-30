@@ -4,6 +4,7 @@ from emulator.emulator import emulatedHw
 from hardware.hardware import rtlHw
 from software.delta_decompressor import DeltaDecompressor
 import firmware.firmware as firm
+from misc.misc import *
 import math, yaml
 import numpy as np
 import unittest
@@ -24,6 +25,7 @@ class TestEmulator(unittest.TestCase):
         self.BUILDING_BLOCKS = yaml_dict['BUILDING_BLOCKS']
         self.DATA_WIDTH = yaml_dict['DATA_WIDTH']
         self.DELTA_SLOTS = yaml_dict['DELTA_SLOTS']
+        self.DATA_TYPE = yaml_dict['DATA_TYPE']
 
     def test_SimpleDistribution(self):
         # Instantiate processor
@@ -46,6 +48,7 @@ class TestEmulator(unittest.TestCase):
         # Decompress the tracebuffer
         dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+        decomp_tb = np.array(encodedIntTofloat(decomp_tb,self.DATA_WIDTH))
 
         # Test distribution
         self.assertTrue(np.allclose(decomp_tb[-1],[ 1,2,1,0,1,1,1,1]))
@@ -75,6 +78,7 @@ class TestEmulator(unittest.TestCase):
         # Decompress the tracebuffer
         dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+        decomp_tb = np.array(encodedIntTofloat(decomp_tb,self.DATA_WIDTH))
 
         # Test dual distribution
         self.assertTrue(np.allclose(decomp_tb[-1],[ 2.,5.,1.,0.,2.,2.,2.,2.]))
@@ -132,6 +136,7 @@ class TestEmulator(unittest.TestCase):
         # Decompress the tracebuffer
         dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+        decomp_tb = np.array(encodedIntTofloat(decomp_tb,self.DATA_WIDTH))
 
         # Test spatial sparsity
         self.assertTrue(np.allclose(decomp_tb[0],[ 1.,1.,1.,1.,0.,1.,0.,1.]))
@@ -191,6 +196,10 @@ class TestEmulator(unittest.TestCase):
         self.assertTrue(np.isclose(np.sum(input_vector2-input_vector1),proc.dp.v_out[1]))
 
     def test_DeltaCompression(self):
+        # save config state
+        old_config_state = self.emu_cfg
+
+        self.emu_cfg['DATA_TYPE'] = 'int'
 
         # Instantiate processor
         proc = emulatedHw(**self.emu_cfg)
@@ -252,6 +261,9 @@ class TestEmulator(unittest.TestCase):
 
         # Test raw compression
         self.assertTrue(np.all(decomp_tb == frame_out))
+
+        # restore config state
+        self.emu_cfg = old_config_state
 
 if __name__ == "__main__":
     unittest.main()

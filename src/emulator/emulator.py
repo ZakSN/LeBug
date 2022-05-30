@@ -42,6 +42,7 @@ class emulatedHw():
                 self.log['vsru'].append(chain)
             elif b=='DataPacker':
                 packed_data = self.dp.step(chain)
+                packed_data = (self.enforce_data_type(packed_data[0]), packed_data[1])
                 self.log['dp'].append(packed_data)
             elif b=='DeltaCompressor':
                 compressed_data = self.dc.step(packed_data)
@@ -84,13 +85,35 @@ class emulatedHw():
             self.step()
         return self.log
 
+    def enforce_data_type(self, vector):
+        '''
+        delta compression requires fixed precision numbers (modeled with
+        integers in the delta compression emulator), since it involves
+        bit manipulation. Since python floats are arbitrary precision we need
+        to convert them to integer encoding like what is used in hardware.
+        '''
+        if self.DATA_TYPE == 'int':
+            return vector
+        def f(x):
+            if x > self.DATA_MAX:
+                return x - ((2**self.DATA_WIDTH)-1)
+            return x
+        vect_f = np.vectorize(f)
+        vector = np.squeeze(np.array(floatToEncodedInt(vector,self.DATA_WIDTH)))
+        return vect_f(vector)
+
     def __init__(self,N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,
-                 BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS,**kwargs):
+                 BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS,DATA_TYPE,**kwargs):
         ''' Verifying parameters '''
         assert math.log(N, 2).is_integer(), "N must be a power of 2" 
         assert math.log(M, 2).is_integer(), "N must be a power of 2" 
         assert M<=N, "M must be less or equal to N" 
         assert DATA_WIDTH%DELTA_SLOTS == 0, "data width must be divisible by delta slots"
+        self.DATA_WIDTH=DATA_WIDTH
+        self.N = N
+        self.DATA_MAX = twos_complement_max(self.DATA_WIDTH)
+        self.DATA_MIN = twos_complement_min(self.DATA_WIDTH)
+        self.DATA_TYPE = DATA_TYPE
 
         PRECISION = int(DATA_WIDTH/DELTA_SLOTS)
         INV = twos_complement_min(PRECISION)

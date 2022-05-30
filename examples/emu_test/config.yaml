@@ -12,6 +12,7 @@ TB_SIZE: 8      # Size of Trace Buffer in N*elements
 MAX_CHAINS: 8   # Maximum number of chains of the firmware
 DATA_WIDTH: 32  # Number of bits to encode each vector element
 DELTA_SLOTS: 4  # Maximum number of deltas to compress into one word
+DATA_TYPE: 'fixed_point' # fixed point or integer
 
 # Define how building blocks are connected
 BUILDING_BLOCKS: 

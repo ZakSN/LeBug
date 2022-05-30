@@ -703,7 +703,11 @@ class rtlHw():
             else:
                 tb_inputs.append(f"eof[1] = 0;")
             for idx,ele in enumerate(inp[0]):
-                tb_inputs.append(f"vector[{idx}]=32'd{ele};")
+                if ele > 0:
+                    tb_inputs.append(f"vector[{idx}]=32'd{ele};")
+                else:
+                    nele = -1*ele
+                    tb_inputs.append(f"vector[{idx}]=-32'd{nele};")
             tb_inputs.append("#half_period;")
             tb_inputs.append("#half_period;")
             if i!=0:

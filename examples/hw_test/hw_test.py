@@ -1,4 +1,6 @@
 import sys
+sys.path.insert(1, '../')
+from test_utils import TestUtils
 sys.path.insert(1, '../../src/')
 from emulator.emulator import emulatedHw
 from hardware.hardware import rtlHw
@@ -11,7 +13,7 @@ np.set_printoptions(precision=3, suppress=False)
 import unittest
 import warnings
 
-class TestHardware(unittest.TestCase):
+class TestHardware(unittest.TestCase, TestUtils):
     # Read YAML configuration file and declare those as global variables
     def setUp(self):
         # FIXME: silence warnings, so that we don't get overwhelmed with warnings
@@ -37,6 +39,8 @@ class TestHardware(unittest.TestCase):
         self.DELTA_SLOTS = yaml_dict['DELTA_SLOTS']
         self.DATA_TYPE = yaml_dict['DATA_TYPE']
         self.DEVICE_FAM = yaml_dict['DEVICE_FAM']
+        self.PRECISION = int(self.DATA_WIDTH/self.DELTA_SLOTS)
+        self.INV = twos_complement_min(self.PRECISION)
 
     # Filter results after computations
     def filterResults(self, emu_results, hw_results, DATA_TYPE):
@@ -56,6 +60,7 @@ class TestHardware(unittest.TestCase):
             hw_results_filtered = np.array(toInt(hw_results['tb']['mem_data']))
         elif DATA_TYPE=='fixed_point':
             hw_results_filtered = np.array(encodedIntTofloat(hw_results['tb']['mem_data'],self.DATA_WIDTH))
+            emu_results_filtered = np.array(encodedIntTofloat(emu_results_filtered,self.DATA_WIDTH))
 
         # Print Results
         print("\n\n********** Emulation results **********")
@@ -67,28 +72,56 @@ class TestHardware(unittest.TestCase):
 
     # Put input values into testbench
     def pushVals(self, emu_proc,hw_proc,num_input_vectors,eof1=None,eof2=None,neg_vals=False):
-        np.random.seed(0)
-        input_vectors=[]
+        '''
+        Generate a frame of input vectors and then push them into the hardware
+
+        This function does confusing things:
+        Regardless of the current data type we always push 'ints' into the
+        emulator and simulator. This is becuase we need to do bit manipulation
+        in order for compression to work. However, if the data type is set to
+        fixed point, we don't cast to int (since this would lose information
+        past the radix point) instead we encode the fixed point value in an 'int'
+        so that it can undergo normal bitwise processing
+        '''
+
         if eof1 is None:
             eof1=num_input_vectors*[False]
         if eof2 is None:
             eof2=num_input_vectors*[False]
+
+        if hw_proc.DATA_TYPE == 0: # integer
+            if neg_vals:
+                limit = (-5, 5)
+            else:
+                limit = (0,10)
+        else:
+            if neg_vals:
+                limit = floatToEncodedInt([5.0,5.0], self.DATA_WIDTH)
+                # this is ugly; if we encode -5.0 as an int we get a two's
+                # complement value with the high bit set, however we interpret
+                # the inputs of the emu/sim as not yet twos complement, so we
+                # instead multiply be -1 encoding to get a "smaller" encoded number
+                limit = (limit[0]*-1,limit[1])
+            else:
+                limit = floatToEncodedInt([0.0,10.0], self.DATA_WIDTH)
+
+        input_vectors = self.build_frame(
+            num_input_vectors,
+            self.N,
+            self.DATA_WIDTH,
+            self.PRECISION,
+            limit=limit
+        )
+
         print("********** Input vectors **********")
         for i in range(num_input_vectors):
-            # Integer data type
-            if hw_proc.DATA_TYPE==0:
-                input_vectors.append(np.random.randint(9, size=self.N))
-                print(f'Cycle {i}:\t{input_vectors[i]}')
+            input_vectors_as_float = np.squeeze(np.array(encodedIntTofloat([input_vectors[i]],self.DATA_WIDTH)))
+            if hw_proc.DATA_TYPE == 0: # integer
+                print("Cycle "+str(i)+":\t"+str(input_vectors[i]))
                 emu_proc.push([input_vectors[i],eof1[i],eof2[i]])
-            # Fixed-point data type
-            elif hw_proc.DATA_TYPE==1:
-                if neg_vals:
-                    input_vectors.append(10*np.random.random(self.N)-5)
-                else:
-                    input_vectors.append(10*np.random.random(self.N))
-                print(f'Cycle {i}:\t{input_vectors[i]}')
-                emu_proc.push([input_vectors[i],eof1[i],eof2[i]])
-                input_vectors[i] = floatToEncodedInt(input_vectors[i],hw_proc.DATA_WIDTH)
+            else:
+                print("Cycle "+str(i)+":\t"+str(input_vectors_as_float))
+                emu_proc.push([input_vectors_as_float,eof1[i],eof2[i]])
             hw_proc.push([input_vectors[i],eof1[i],eof2[i]])
 
     def test_raw(self):
@@ -158,7 +191,7 @@ class TestHardware(unittest.TestCase):
 
         # Create common input values
         num_input_vectors=5
-        self.pushVals(emu_proc,hw_proc,num_input_vectors,neg_vals=True)
+        self.pushVals(emu_proc,hw_proc,num_input_vectors,neg_vals=False)
 
         # Configure firmware - Both HW and Emulator work with the same firmware
         fw = firm.correlation(hw_proc.compiler)
@@ -171,7 +204,7 @@ class TestHardware(unittest.TestCase):
         emu_results = emu_proc.run(steps=steps)
 
         # Filter Results
-        emu_results_filtered, hw_results_filtered = self.filterResults(emu_results, hw_results, self.DATA_TYPE)
+        emu_results_filtered, hw_results_filtered = self.filterResults(emu_results, hw_results, self.cfg['DATA_TYPE'])
 
         # Verify that results are equal
         self.assertTrue(np.allclose(emu_results_filtered,hw_results_filtered, rtol=0.05))
