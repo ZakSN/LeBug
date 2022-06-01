@@ -31,7 +31,8 @@
     //-------------Code Start-----------------
 
     // Instantiate memory to implement circular trace buffer
-    reg [$clog2(TB_SIZE)-1:0] tb_ptr=0;
+    reg [$clog2(TB_SIZE)-1:0] tb_ptr=-1;
+    reg [$clog2(TB_SIZE)-1:0] wr_addr;
     wire write_enable_a;
     reg write_enable_b=0;
     wire [MEM_WIDTH-1:0] tbuffer_in_a;
@@ -41,7 +42,7 @@
     ram_dual_port tbuffer (
       .clk( clk ),
       .clken( 1'b1 ),
-      .address_a( tb_ptr ),
+      .address_a( wr_addr ),
       .address_b( tb_read_address ),
       .wren_a( write_enable_a ),
       .wren_b( write_enable_b ),
@@ -69,7 +70,7 @@
     ram_dual_port cfbuffer (
       .clk( clk ),
       .clken( 1'b1 ),
-      .address_a( tb_ptr ),
+      .address_a( wr_addr ),
       .address_b( tb_read_address ),
       .wren_a( write_enable_a ),
       .wren_b( write_enable_b ),
@@ -99,11 +100,12 @@
         end
     end
 
+    assign wr_addr = inc_tb_ptr==1'b1 ? tb_ptr + 1'b1 : tb_ptr;
+
 
     // Directly assign module inputs to port A of memory
     assign tbuffer_in_a = { >> { vector_in }};
-    assign tbuffer_write_enable_a = valid_in;
-    assign cfbuffer_write_enable_a = valid_in;
+    assign write_enable_a = valid_in;
 
     // Module output comes from port b (need to drive it when dumping the content)
     assign vector_out = { >> { tbuffer_out_b }};

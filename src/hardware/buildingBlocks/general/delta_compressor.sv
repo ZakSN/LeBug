@@ -44,7 +44,7 @@ module deltaCompressor #(
   integer ptr;
 
   always @(posedge clk) begin
-    if (valid_in == 1'b1 && tracing==1'b0) begin
+    if (valid_in == 1'b1 && tracing==1'b1) begin
       // starting condition; last_vector is invalid and must be re-initialized
       if (first_cycle == 1'b1) begin
         last_vector = vector_in;
@@ -117,7 +117,7 @@ module deltaCompressor #(
     end
 
     // if we're not processing reset the compression algorithm
-    if (tracing == 1'b1) begin
+    if (tracing == 1'b0) begin
       first_cycle = 1'b1;
       ptr = -1;
       valid_out = 1'b0;
