@@ -298,6 +298,8 @@ class rtlHw():
             ['N',self.N],
             ['M',self.M],
             ['DATA_WIDTH',self.DATA_WIDTH],
+            ['DELTA_SLOTS',self.DELTA_SLOTS],
+            ['COMPRESSED',self.COMPRESSED],
             ['IB_DEPTH',self.IB_DEPTH],
             ['FUVRF_SIZE',self.FUVRF_SIZE],
             ['VVVRF_SIZE',self.VVVRF_SIZE],
@@ -309,6 +311,7 @@ class rtlHw():
         top.include("input_buffer.sv")
         top.include("trace_buffer.sv")
         top.include("data_packer.sv")
+        top.include("delta_compressor.sv")
         top.include("vector_scalar_reduce_unit.sv")
         top.include("vector_vector_alu.sv")
         top.include("filter_reduce_unit.sv")
@@ -487,21 +490,43 @@ class rtlHw():
             ['INITIAL_FIRMWARE_COND']])
         top.mod.dataPacker.setAsConfigurable(configurable_parameters=1)
 
+        # DeltaCompressor
+        top.includeModule("deltaCompressor")
+        top.mod.deltaCompressor.addInput([
+            ['clk', 'logic', 1],
+            ['tracing', 'logic', 1],
+            ['valid_in', 'logic', 1],
+            ['vector_in', 'logic', 'DATA_WIDTH', 'N']])
+        top.mod.deltaCompressor.addOutput([
+            ['valid_out', 'logic', 1],
+            ['vector_out', 'logic', 'DATA_WIDTH', 'N'],
+            ['v_out_comp', 'logic', 1],
+            ['inc_tb_ptr', 'logic', 1]])
+        top.mod.deltaCompressor.addParameter([
+            ['N'],
+            ['DATA_WIDTH'],
+            ['DELTA_SLOTS'],
+            ['COMPRESSED']])
+
         # TraceBuffer
         top.includeModule("traceBuffer")
         top.mod.traceBuffer.addInput([
             ['clk','logic',1],
-            ['valid_in','logic',1],
-            ['vector_in','logic','DATA_WIDTH','N'],
             ['tracing','logic',1],
-            ['tb_mem_address','logic','$clog2(TB_SIZE)']])
+            ['valid_in','logic',1],
+            ['compression_flag_in', 'logic', 1],
+            ['inc_tb_ptr', 'logic', 1],
+            ['vector_in','logic','DATA_WIDTH','N'],
+            ['tb_read_address','logic','$clog2(TB_SIZE)']])
         top.mod.traceBuffer.addOutput([
-            ['vector_out','logic','DATA_WIDTH','N']])
+            ['vector_out','logic','DATA_WIDTH','N'],
+            ['compression_flag_out', 'logic', 1]])
         top.mod.traceBuffer.addParameter([
             ['N'],
             ['DATA_WIDTH'],
             ['TB_SIZE']])
-        top.mod.traceBuffer.addMemory("traceBuffer",self.TB_SIZE,self.DATA_WIDTH*self.N)
+        top.mod.traceBuffer.addMemory("tbuffer",self.TB_SIZE,self.DATA_WIDTH*self.N)
+        top.mod.traceBuffer.addMemory("cfbuffer",self.TB_SIZE,1)
 
         return top
 
@@ -638,6 +663,13 @@ class rtlHw():
             ['INITIAL_FIRMWARE',DP_INITIAL_FIRMWARE],
             ['INITIAL_FIRMWARE_COND',DP_INITIAL_FIRMWARE_COND]])
 
+        top.instantiateModule(top.mod.deltaCompressor, "dc")
+        top.inst.dc.setParameters([
+            ['N', 'N'],
+            ['DATA_WIDTH', 'DATA_WIDTH'],
+            ['DELTA_SLOTS', 'DELTA_SLOTS'],
+            ['COMPRESSED', 'COMPRESSED']])
+
         top.instantiateModule(top.mod.traceBuffer,"tb")
         top.inst.tb.setParameters([
             ['N','N'],
@@ -664,7 +696,7 @@ class rtlHw():
                                     'configData': 'configData_reconfig'}
 
         # Check if building blocks are not breaking any rules
-        if self.BUILDING_BLOCKS[0] != "InputBuffer" or self.BUILDING_BLOCKS[-3]!="DataPacker" or self.BUILDING_BLOCKS[-1]!="TraceBuffer":
+        if self.BUILDING_BLOCKS[0] != "InputBuffer" or self.BUILDING_BLOCKS[-3]!="DataPacker" or self.BUILDING_BLOCKS[-2]!="DeltaCompressor" or self.BUILDING_BLOCKS[-1]!="TraceBuffer":
             assert False, "Building blocks do not follow order currently supported by the hardware generator"
 
         # Automatically connect remaining modules
@@ -682,11 +714,17 @@ class rtlHw():
             prev_block=next_block
 
         top.inst.dp.connectInputs(prev_block)
-        top.inst.tb.instance_input={'clk': 'clk', 
-                                    'valid_in': 'valid_out_dp', 
-                                    'vector_in': 'vector_out_dp', 
+        top.inst.dc.instance_input={'clk' : 'clk',
+                                    'tracing' : 'tracing_reconfig',
+                                    'valid_in' : 'valid_out_dp',
+                                    'vector_in' : 'vector_out_dp'}
+        top.inst.tb.instance_input={'clk': 'clk',
                                     'tracing': 'tracing_reconfig',
-                                    'tb_mem_address':'tb_mem_address_reconfig'}
+                                    'valid_in': 'valid_out_dc',
+                                    'compression_flag_in' : 'v_out_comp_dc',
+                                    'inc_tb_ptr' : 'inc_tb_ptr_dc',
+                                    'vector_in': 'vector_out_dc',
+                                    'tb_read_address':'tb_mem_address_reconfig'}
 
         # Assign outputs
         top.output_assignment={'vector_out': 'vector_out_tb','uart_txd':'uart_txd_comm'}
@@ -764,6 +802,8 @@ class rtlHw():
             // Compile-time parameters
             parameter N={self.N};
             parameter DATA_WIDTH={self.DATA_WIDTH};
+            parameter DELTA_SLOTS={self.DELTA_SLOTS};
+            parameter COMPRESSED={self.COMPRESSED};
             parameter IB_DEPTH={self.IB_DEPTH};
             parameter MAX_CHAINS={self.MAX_CHAINS};
             parameter TB_SIZE={self.TB_SIZE};
@@ -799,6 +839,8 @@ class rtlHw():
             {self.top.name} #(
               .N(N),
               .DATA_WIDTH(DATA_WIDTH),
+              .DELTA_SLOTS(DELTA_SLOTS),
+              .COMPRESSED(COMPRESSED),
               .IB_DEPTH(IB_DEPTH),
               .MAX_CHAINS(MAX_CHAINS),
               .TB_SIZE(TB_SIZE),
@@ -837,7 +879,7 @@ class rtlHw():
                 $fclose(write_data);
                 write_data2 = $fopen("simulation_results_tb.txt");
                 for (i=0; i<dbg.tb.TB_SIZE; i=i+1) begin
-                    tmp = dbg.tb.mem.{altsyncram_data_path}[i];
+                    tmp = dbg.tb.tbuffer.{altsyncram_data_path}[i];
                     for (j=0; j<N; j=j+1) begin
                         // Verilog you can't have two variable expressions in a range, even if they evaluate to a constant difference.  
                         // Specifically: [j*DATA_WIDTH+DATA_WIDTH-1:j*DATA_WIDTH] should be:[j*DATA_WIDTH +: DATA_WIDTH]
@@ -965,7 +1007,7 @@ class rtlHw():
         self.testbench_inputs.append(pushed_values)
 
     def __init__(self,N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,DATA_WIDTH,
-                 MAX_CHAINS,BUILDING_BLOCKS,DATA_TYPE,DEVICE_FAM,**kwargs):
+                 MAX_CHAINS,BUILDING_BLOCKS,DATA_TYPE,DEVICE_FAM,DELTA_SLOTS,**kwargs):
         ''' Verifying parameters '''
         assert math.log(N, 2).is_integer(), "N must be a power of 2" 
         assert math.log(M, 2).is_integer(), "N must be a power of 2" 
@@ -975,6 +1017,8 @@ class rtlHw():
         self.M=M
         self.IB_DEPTH=IB_DEPTH
         self.DATA_WIDTH=DATA_WIDTH
+        self.DELTA_SLOTS=DELTA_SLOTS
+        self.COMPRESSED=COMPRESSED # constant defined in misc.py
         self.MAX_CHAINS=MAX_CHAINS
         self.TB_SIZE=TB_SIZE
         self.VVVRF_SIZE=VVVRF_SIZE
