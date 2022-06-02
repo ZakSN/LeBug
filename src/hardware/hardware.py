@@ -500,8 +500,9 @@ class rtlHw():
         top.mod.deltaCompressor.addOutput([
             ['valid_out', 'logic', 1],
             ['vector_out', 'logic', 'DATA_WIDTH', 'N'],
-            ['v_out_comp', 'logic', 1],
-            ['inc_tb_ptr', 'logic', 1]])
+            ['compression_flag_out', 'logic', 1],
+            ['inc_tb_ptr', 'logic', 1],
+            ['last_vector_out', 'wire', 'DATA_WIDTH', 'N']])
         top.mod.deltaCompressor.addParameter([
             ['N'],
             ['DATA_WIDTH'],
@@ -520,13 +521,22 @@ class rtlHw():
             ['tb_read_address','logic','$clog2(TB_SIZE)']])
         top.mod.traceBuffer.addOutput([
             ['vector_out','logic','DATA_WIDTH','N'],
-            ['compression_flag_out', 'logic', 1]])
+            ['compression_flag_out', 'logic', 1],
+            ['tb_ptr_out', 'wire', '$clog2(TB_SIZE)']])
         top.mod.traceBuffer.addParameter([
             ['N'],
             ['DATA_WIDTH'],
             ['TB_SIZE']])
-        top.mod.traceBuffer.addMemory("tbuffer",self.TB_SIZE,self.DATA_WIDTH*self.N)
-        top.mod.traceBuffer.addMemory("cfbuffer",self.TB_SIZE,1)
+        top.mod.traceBuffer.addMemory(
+            "traceBuffer",
+            self.TB_SIZE,
+            self.DATA_WIDTH*self.N+1,
+            packed_elements=self.N,
+            init_values=([[
+                    n_bit_nodata(
+                    self.DELTA_SLOTS,
+                    self.PRECISION,
+                    self.INV)]*self.N]*self.TB_SIZE))
 
         return top
 
@@ -721,7 +731,7 @@ class rtlHw():
         top.inst.tb.instance_input={'clk': 'clk',
                                     'tracing': 'tracing_reconfig',
                                     'valid_in': 'valid_out_dc',
-                                    'compression_flag_in' : 'v_out_comp_dc',
+                                    'compression_flag_in' : 'compression_flag_out_dc',
                                     'inc_tb_ptr' : 'inc_tb_ptr_dc',
                                     'vector_in': 'vector_out_dc',
                                     'tb_read_address':'tb_mem_address_reconfig'}
@@ -824,7 +834,7 @@ class rtlHw():
             reg [DATA_WIDTH-1:0] vector_out [N-1:0];
             reg valid_out;
 
-            reg [DATA_WIDTH*N-1:0] tmp;
+            reg [DATA_WIDTH*N:0] tmp;
             integer count_1=0;
             integer count_2=0;
 
@@ -879,7 +889,8 @@ class rtlHw():
                 $fclose(write_data);
                 write_data2 = $fopen("simulation_results_tb.txt");
                 for (i=0; i<dbg.tb.TB_SIZE; i=i+1) begin
-                    tmp = dbg.tb.tbuffer.{altsyncram_data_path}[i];
+                    tmp = dbg.tb.mem.{altsyncram_data_path}[i];
+                    $fwrite(write_data2, "%b ", tmp[N*DATA_WIDTH]);
                     for (j=0; j<N; j=j+1) begin
                         // Verilog you can't have two variable expressions in a range, even if they evaluate to a constant difference.  
                         // Specifically: [j*DATA_WIDTH+DATA_WIDTH-1:j*DATA_WIDTH] should be:[j*DATA_WIDTH +: DATA_WIDTH]
@@ -979,12 +990,15 @@ class rtlHw():
 
         f = open("simulation_results_tb.txt", "r")
         tb=[]
+        cfb=[]
         for line in f:
             count=0
             l= line.replace(" \n","").split(" ")
             if len(l)>1:
-                tb.append(l)
+                tb.append(l[1:])
+                cfb.append(l[0])
         results['tb']['mem_data']=tb
+        results['tb']['cfb']=cfb
 
         # Go back to main directory
         os.chdir(current_folder)
@@ -1012,6 +1026,7 @@ class rtlHw():
         assert math.log(N, 2).is_integer(), "N must be a power of 2" 
         assert math.log(M, 2).is_integer(), "N must be a power of 2" 
         assert M<=N, "M must be less or equal to N" 
+        assert DATA_WIDTH%DELTA_SLOTS == 0, "DATA_WIDTH must be divisible by DELTA_SLOTS"
 
         self.N=N
         self.M=M
@@ -1019,6 +1034,8 @@ class rtlHw():
         self.DATA_WIDTH=DATA_WIDTH
         self.DELTA_SLOTS=DELTA_SLOTS
         self.COMPRESSED=COMPRESSED # constant defined in misc.py
+        self.PRECISION = int(DATA_WIDTH/DELTA_SLOTS)
+        self.INV = twos_complement_min(self.PRECISION)
         self.MAX_CHAINS=MAX_CHAINS
         self.TB_SIZE=TB_SIZE
         self.VVVRF_SIZE=VVVRF_SIZE

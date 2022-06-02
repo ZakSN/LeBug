@@ -50,22 +50,33 @@ class TestHardware(unittest.TestCase, TestUtils):
             self.DELTA_SLOTS,
             self.TB_SIZE
         )
-        emu_results_filtered = dd.decompress(
-            emu_results['dc'][-1][1],
-            emu_results['tb'][-1][0],
-            emu_results['tb'][-1][1],
-            emu_results['tb'][-1][2],
-        )
-        if DATA_TYPE=='int':
-            hw_results_filtered = np.array(toInt(hw_results['tb']['mem_data']))
-        elif DATA_TYPE=='fixed_point':
-            hw_results_filtered = np.array(encodedIntTofloat(hw_results['tb']['mem_data'],self.DATA_WIDTH))
-            emu_results_filtered = np.array(encodedIntTofloat(emu_results_filtered,self.DATA_WIDTH))
+        emu_results_compressed = [
+            emu_results['dc'][-1][1], # last vector register
+            emu_results['tb'][-1][0], # trace buffer
+            emu_results['tb'][-1][1], # compression flag buffer
+            emu_results['tb'][-1][2], # trace buffer pointer
+        ]
+        emu_results_decompressed = dd.decompress(*emu_results_compressed)
+
+        hw_results_compressed = [
+            np.array(toInt([hw_results['dc']['last_vector_out'][-1]]))[0], # last vector register
+            np.array(toInt(hw_results['tb']['mem_data'])), # trace buffer
+            np.array(toInt(hw_results['tb']['cfb'])), # compression flag buffer
+            np.array(toInt(hw_results['tb']['tb_ptr_out'][-1]))[0][0], # trace buffer pointer
+        ]
+        hw_results_decompressed = dd.decompress(*hw_results_compressed)
 
         # Print Results
-        print("\n\n********** Emulation results **********")
+        if DATA_TYPE=='int':
+            emu_results_filtered = emu_results_decompressed
+            hw_results_filtered = hw_results_decompressed
+        elif DATA_TYPE=='fixed_point':
+            emu_results_filtered = np.array(encodedIntTofloat(emu_results_decompressed, self.cfg['DATA_WIDTH']))
+            hw_results_filtered = np.array(encodedIntTofloat(hw_results_decompressed, self.cfg['DATA_WIDTH']))
+
+        print("\n\n********** Decompressed Emulation results **********")
         print(emu_results_filtered)
-        print("\n********** Hardware results **********")
+        print("\n********** Decompressed Hardware results **********")
         print(hw_results_filtered)
 
         return emu_results_filtered, hw_results_filtered
@@ -74,14 +85,6 @@ class TestHardware(unittest.TestCase, TestUtils):
     def pushVals(self, emu_proc,hw_proc,num_input_vectors,eof1=None,eof2=None,neg_vals=False):
         '''
         Generate a frame of input vectors and then push them into the hardware
-
-        This function does confusing things:
-        Regardless of the current data type we always push 'ints' into the
-        emulator and simulator. This is becuase we need to do bit manipulation
-        in order for compression to work. However, if the data type is set to
-        fixed point, we don't cast to int (since this would lose information
-        past the radix point) instead we encode the fixed point value in an 'int'
-        so that it can undergo normal bitwise processing
         '''
 
         if eof1 is None:
@@ -309,7 +312,7 @@ class TestHardware(unittest.TestCase, TestUtils):
 
         # Instantiate HW and Emulator Processors
         self.cfg['DATA_TYPE']='int'
-        self.cfg['BUILDING_BLOCKS']=['InputBuffer', 'FilterReduceUnit','VectorScalarReduce','VectorVectorALU','DataPacker','TraceBuffer']
+        self.cfg['BUILDING_BLOCKS']=['InputBuffer', 'FilterReduceUnit','VectorScalarReduce','VectorVectorALU','DataPacker','DeltaCompressor','TraceBuffer']
 
         hw_proc  = rtlHw(**self.cfg)
         emu_proc = emulatedHw(**self.cfg)
