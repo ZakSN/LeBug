@@ -15,8 +15,9 @@ module deltaCompressor #(
  input logic [DATA_WIDTH-1:0] vector_in [N-1:0],
  output reg valid_out,
  output reg [DATA_WIDTH-1:0] vector_out [N-1:0],
- output reg v_out_comp,
- output reg inc_tb_ptr
+ output reg compression_flag_out,
+ output reg inc_tb_ptr,
+ output wire [DATA_WIDTH-1:0] last_vector_out [N-1:0]
  );
 
   // the number of bits available to represent a delta
@@ -36,17 +37,19 @@ module deltaCompressor #(
   reg [DATA_WIDTH-1:0] comp_reg [N-1:0];
   reg [DATA_WIDTH-1:0] cr_upper_mask;
   reg [DATA_WIDTH-1:0] cr_lower_mask;
-  reg first_cycle;
+  reg first_cycle=1'b1;
   reg [N-1:0] overflow;
 
   integer i;
   integer j;
-  integer ptr;
+  integer ptr=0;
+
+  assign last_vector_out = last_vector;
 
   always @(posedge clk) begin
-    if ((valid_in == 1'b1) && (tracing==1'b1)) begin
+    if (tracing==1'b1) begin
       // starting condition; last_vector is invalid and must be re-initialized
-      if (first_cycle == 1'b1) begin
+      if ((first_cycle == 1'b1)&&(valid_in == 1'b1)) begin
         last_vector = vector_in;
         valid_out = 1'b0;
         first_cycle = 1'b0;
@@ -54,7 +57,7 @@ module deltaCompressor #(
           comp_reg[i] = NODATA;
         end
       end
-      else begin
+      else if (valid_in == 1'b1) begin
         // we've seen at least one vector; start compressing
 
         // compute delta vector:
@@ -85,7 +88,7 @@ module deltaCompressor #(
 
           // set output signals
           valid_out = 1'b1;
-          v_out_comp = COMPRESSED;
+          compression_flag_out = COMPRESSED;
           vector_out = comp_reg;
           if (ptr==0) begin
             inc_tb_ptr = 1'b1;
@@ -104,7 +107,7 @@ module deltaCompressor #(
         else begin // overflow
           // set output signals
           valid_out = 1'b1;
-          v_out_comp = ~COMPRESSED;
+          compression_flag_out = ~COMPRESSED;
           vector_out = last_vector;
           inc_tb_ptr = 1'b1;
           ptr = 0;
@@ -114,12 +117,15 @@ module deltaCompressor #(
         end
         last_vector = vector_in;
       end
+      else begin
+        valid_out = valid_in;
+      end
     end
 
     // if we're not processing reset the compression algorithm
-    else begin
+    else if (tracing == 1'b0) begin
       first_cycle = 1'b1;
-      ptr = -1;
+      ptr = 0;
       valid_out = 1'b0;
     end
   end
