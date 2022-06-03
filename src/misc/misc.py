@@ -10,8 +10,18 @@ class struct:
         return str(self.__dict__)
 
 ''' Map list to int '''
-def toInt(lst):
-    return [list(map(int, l)) for l in lst]
+def toInt(lst, twos=None):
+    if twos == None:
+        def conv_func(x):
+            return int(x)
+    else:
+        def conv_func(x):
+            xint = int(x)
+            if xint > twos_complement_max(twos):
+                return xint - (2**twos)
+            else:
+                return xint
+    return [list(map(conv_func, l)) for l in lst]
 
 ''' Encode vector of floats to ints '''
 def floatToEncodedInt(float_array,DATA_WIDTH):
