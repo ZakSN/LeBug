@@ -23,10 +23,10 @@ module deltaCompressor #(
   // the number of bits available to represent a delta
   parameter PRECISION = DATA_WIDTH/DELTA_SLOTS;
   // the maximum valid delta (signed DATA_WIDTH bit constant)
-  parameter DELTA_MAX = {{(DELTA_SLOTS-1)*PRECISION{1'b0}}, {PRECISION-1{1'b1}} };
+  parameter DELTA_MAX = {{(DELTA_SLOTS-1)*PRECISION{1'b0}}, 1'b0, {PRECISION-1{1'b1}} };
   // the minimum valid delta (signed DATA_WIDTH bit constant), most negative
   // delta is reserved for the INV symbol
-  parameter DELTA_MIN = {{(DELTA_SLOTS-1)*PRECISION{1'b1}}, {PRECISION-2{1'b0}} , 1'b1};
+  parameter DELTA_MIN = {{(DELTA_SLOTS-1)*PRECISION{1'b1}}, 1'b0, {PRECISION-1{1'b0}} } - 1;
   // INV symbol - invalid delta
   parameter INV = {1'b1, {PRECISION-1{1'b0}}};
   // nodata symbol - empty compression register
