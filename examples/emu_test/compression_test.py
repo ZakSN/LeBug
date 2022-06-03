@@ -10,8 +10,8 @@ import random
 import numpy as np
 import unittest
 
-class TestCompression(unittest.TestCase, TestUtils):
-    def basic_functionality(self,N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,frame_length,p):
+class TestCompressionEmu(unittest.TestCase, TestUtils):
+    def generic_test(self,N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,frame_length,p):
         PRECISION = int(DATA_WIDTH/DELTA_SLOTS)
         INV = twos_complement_min(PRECISION)
 
@@ -53,12 +53,12 @@ class TestCompression(unittest.TestCase, TestUtils):
         # maximum
         self.assertTrue(cr <= DELTA_SLOTS)
 
-    @unittest.skip("skipping sweep")
+    @unittest.skip("")
     def test_param_config(self):
         '''
         dummy test for debugging specific parameter configurations
         '''
-        self.basic_functionality(1,4,8,4,256,0.9)
+        self.generic_test(8,32,8,2,16,0.2)
 
     def test_paramteric_sweep(self):
         '''
@@ -90,7 +90,7 @@ class TestCompression(unittest.TestCase, TestUtils):
                                      +"frame_length="+str(frame_length)+"\n"\
                                      +"p="+str(p)+"\n"
                                 with self.subTest(msg=msg):
-                                    self.basic_functionality(N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,frame_length,p)
+                                    self.generic_test(N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,frame_length,p)
 
 
 if __name__=="__main__":
