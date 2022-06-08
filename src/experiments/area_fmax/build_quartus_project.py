@@ -37,7 +37,8 @@ hw_cfg = {
     'MAX_CHAINS' : 4,
     'DATA_TYPE' : 'fixed_point',
     'DATA_WIDTH' : 32,
-    'BUILDING_BLOCKS' : ['InputBuffer','FilterReduceUnit','VectorVectorALU','VectorScalarReduce','DataPacker','TraceBuffer'],
+    'BUILDING_BLOCKS' : ['InputBuffer','FilterReduceUnit','VectorVectorALU','VectorScalarReduce','DataPacker','DeltaCompressor','TraceBuffer'],
+    'DELTA_SLOTS' : 4,
     'DEVICE_FAM' : 'Stratix 10',
 }
 
