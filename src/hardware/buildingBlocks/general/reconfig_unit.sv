@@ -9,7 +9,8 @@
       TB_SIZE=8,
       DATA_WIDTH=32,
       MAX_CHAINS=4,
-      FUVRF_SIZE=4
+      FUVRF_SIZE=4,
+      COMPRESSED=0
   )
   (
   input logic clk,
@@ -22,30 +23,49 @@
   output logic [7:0] configId,
   output logic [7:0] configData,
   output logic [$clog2(TB_SIZE)-1:0] tb_mem_address,
-  input logic [DATA_WIDTH-1:0] vector_out_tb [N-1:0]
-
+  input logic [DATA_WIDTH-1:0] vector_out_tb [N-1:0],
+  input logic compression_flag_out_tb,
+  input logic [DATA_WIDTH-1:0] last_vector_out_dc [N-1:0],
+  input logic [$clog2(TB_SIZE)-1:0] tb_ptr_out_tb
  );
 
-  parameter [9:0]
-    DBG_TRACING                 = 10'b0000000001,
-    DBG_SLEEP_HALF_SECOND       = 10'b0000000010,
-    DBG_SELECT_DATA_TO_TRANSMIT = 10'b0000000100,
-    DBG_DELAY                   = 10'b0000001000,
-    DBG_READ_SELECTED_DATA      = 10'b0000010000, 
-    DBG_START_TRANSMISSION      = 10'b0000100000, 
-    DBG_WAIT_BYTE_TRANSMISSION  = 10'b0001000000,
-    DBG_CHECK_DONE              = 10'b0010000000,
-    DBG_FINAL                   = 10'b0100000000,
-    DBG_UPDATING_INTRUMENTATION = 10'b1000000000;
+  parameter NUM_STATES = 14;
+
+  parameter [NUM_STATES-1:0]
+    DBG_TRACING                 = 'd0,
+    DBG_SLEEP_HALF_SECOND       = 'd1,
+    DBG_SELECT_DATA_TO_TRANSMIT = 'd2,
+    DBG_DELAY                   = 'd3,
+    DBG_READ_SELECTED_DATA      = 'd4,
+    DBG_START_TRANSMISSION      = 'd5,
+    DBG_WAIT_BYTE_TRANSMISSION  = 'd6,
+    DBG_CHECK_DONE              = 'd7,
+    DBG_READ_NEXT_TB_PTR_BYTE   = 'd8,
+    DBG_START_TB_PTR_TX         = 'd9,
+    DBG_WAIT_TB_PTR_TX          = 'd10,
+    DBG_CHECK_TB_PTR_DONE       = 'd11,
+    DBG_FINAL                   = 'd12,
+    DBG_UPDATING_INTRUMENTATION = 'd13;
+
+  `ifndef SIMULATION
+  parameter SLEEP_CONSTANT = 32'd25000000;
+  `else
+  parameter SLEEP_CONSTANT = 32'd1;
+  `endif
 
   parameter BYTES_TO_DUMP=N*DATA_WIDTH/8;
-  reg [9:0]   dbg_state = DBG_TRACING;
+  reg [NUM_STATES-1:0]   dbg_state = DBG_TRACING;
   reg [15:0]  dbg_tx_counter = 0;
-  reg [31:0]  dbg_TB_SIZE_counter = 0;
+  parameter integer TB_PTR_BYTES_TO_DUMP=$ceil($clog2(TB_SIZE)/8.0);
+  reg [$clog2(TB_SIZE)-1:0] dbg_tx_tb_ptr_counter = 0;
+  // extra bit to ensure that we can count to one more than the size of the
+  // tracebuffer since we also need to send the last vector from the deltacompressor
+  reg [$clog2(TB_SIZE):0]  dbg_TB_SIZE_counter = 0;
   reg [31:0]  dbg_sleep_half_second = 0;
   reg [7:0]   dbg_rx_counter = 0;
   reg         dbg_last_uart_byte_received=0;
   reg [DATA_WIDTH*N-1:0] vector_to_dump;
+  reg [$clog2(TB_SIZE)-1:0] tb_addr_to_dump;
   reg new_tx_data_reg=0;
   reg dump_new_vector=1;
 
@@ -115,7 +135,7 @@
       end
       DBG_SLEEP_HALF_SECOND:
       begin
-          if (dbg_sleep_half_second<32'd25000000) 
+          if (dbg_sleep_half_second<SLEEP_CONSTANT)
               begin
                 dbg_sleep_half_second<=dbg_sleep_half_second+1;
                 dbg_state <= DBG_SLEEP_HALF_SECOND;
@@ -132,13 +152,36 @@
           dbg_state <= DBG_READ_SELECTED_DATA;
       DBG_READ_SELECTED_DATA:
         begin
-            new_tx_data_reg <= 1; 
-            vector_to_dump <= dump_new_vector ? {>>{vector_out_tb}} : vector_to_dump>>8;
+            new_tx_data_reg <= 1;
+            if (dbg_TB_SIZE_counter < TB_SIZE) begin
+              // we're dumping vectors from trace buffer memory
+              if (dbg_tx_counter < BYTES_TO_DUMP) begin
+                // dump the current vector
+                vector_to_dump <= dump_new_vector ? {>>{vector_out_tb}} : vector_to_dump>>8;
+              end
+              else if (dbg_tx_counter == BYTES_TO_DUMP) begin
+                // dump the current compression flag
+                // XXX we use a whole byte even though the cf is only one bit
+                vector_to_dump <= {{7{1'b0}},compression_flag_out_tb};
+              end
+            end
+            else if (dbg_TB_SIZE_counter == TB_SIZE) begin
+              // if we're done dumping the trace buffer memory dump the uncompressed
+              // last vector from the delta compressor
+              if (dbg_tx_counter < BYTES_TO_DUMP) begin
+                vector_to_dump <= dump_new_vector ? {>>{last_vector_out_dc}} : vector_to_dump>>8;
+              end
+              else if (dbg_tx_counter == BYTES_TO_DUMP) begin
+                // tx CF for last vector, even though it is constant (last vector)
+                // is always uncompressed, to avoid a special case
+                vector_to_dump <= {{7{1'b0}},~COMPRESSED[0]};
+              end
+            end
             dbg_state <= DBG_START_TRANSMISSION;
         end
       DBG_START_TRANSMISSION:
         begin
-            new_tx_data_reg <= 0; 
+            new_tx_data_reg <= 0;
             dbg_state <= DBG_WAIT_BYTE_TRANSMISSION;
         end
       DBG_WAIT_BYTE_TRANSMISSION:
@@ -149,13 +192,13 @@
               dbg_state <= DBG_WAIT_BYTE_TRANSMISSION;
           end
       DBG_CHECK_DONE:
-        if (dbg_tx_counter == BYTES_TO_DUMP && dbg_TB_SIZE_counter==TB_SIZE) begin //End of all dump
-          dbg_state <= DBG_TRACING;
+        if (dbg_tx_counter == (BYTES_TO_DUMP + 1) && dbg_TB_SIZE_counter == TB_SIZE) begin //End of all dump
+          dbg_state <= DBG_READ_NEXT_TB_PTR_BYTE;
           dbg_tx_counter <=0;
           dbg_TB_SIZE_counter<=0;
           dump_new_vector <= 1'b1;
-        end 
-        else if (dbg_tx_counter == BYTES_TO_DUMP) begin //End of dumping array of N values
+        end
+        else if (dbg_tx_counter == (BYTES_TO_DUMP + 1)) begin //End of dumping array of N values
           dbg_tx_counter <=0;
           dbg_TB_SIZE_counter<=dbg_TB_SIZE_counter+1;
           dbg_state <= DBG_SELECT_DATA_TO_TRANSMIT;
@@ -165,14 +208,46 @@
           dbg_state <= DBG_SELECT_DATA_TO_TRANSMIT;
           dump_new_vector <= 1'b0;
         end
+      DBG_READ_NEXT_TB_PTR_BYTE:
+        begin
+          new_tx_data_reg = 1;
+          // XXX tb_addr_to_dump may have more bits than vector_to_dump
+          // therefore we keep them as seperate busses
+          tb_addr_to_dump = dump_new_vector ? tb_ptr_out_tb : tb_addr_to_dump>>8;
+          vector_to_dump = tb_addr_to_dump;
+          dbg_state = DBG_START_TB_PTR_TX;
+        end
+      DBG_START_TB_PTR_TX:
+        begin
+          new_tx_data_reg <= 0;
+          dbg_state <= DBG_WAIT_TB_PTR_TX;
+        end
+      DBG_WAIT_TB_PTR_TX:
+        begin
+          if (tx_busy == 0) begin
+            dbg_state <= DBG_CHECK_TB_PTR_DONE;
+            dbg_tx_tb_ptr_counter <= dbg_tx_tb_ptr_counter + 1;
+          end
+          else begin
+            dbg_state <= DBG_WAIT_TB_PTR_TX;
+          end
+        end
+      DBG_CHECK_TB_PTR_DONE:
+        begin
+          if (dbg_tx_tb_ptr_counter == TB_PTR_BYTES_TO_DUMP) begin
+            dbg_state <= DBG_TRACING;
+            dbg_tx_tb_ptr_counter <= 0;
+            dump_new_vector <= 1'b1;
+          end
+          else begin
+            dbg_state <= DBG_READ_NEXT_TB_PTR_BYTE;
+            dump_new_vector <= 1'b0;
+          end
+        end
       DBG_FINAL:
         dbg_state <= DBG_FINAL;
       default:
         dbg_state <= DBG_TRACING;
     endcase
   end
-
-
-
-
- endmodule 
+ endmodule
