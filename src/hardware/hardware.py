@@ -340,11 +340,13 @@ class rtlHw():
         top.includeModule("reconfigUnit")
         top.mod.reconfigUnit.addInput([
             ['clk','logic',1],
-            ['uart_txd','logic',1],
-            ['tx_busy','logic',1],
             ['rx_data','logic',8],
             ['new_rx_data','logic',1],
-            ['vector_out_tb','logic','DATA_WIDTH','N']
+            ['tx_busy','logic',1],
+            ['vector_out_tb','logic','DATA_WIDTH','N'],
+            ['compression_flag_out_tb', 'logic', 1],
+            ['last_vector_out_dc', 'logic', 'DATA_WIDTH', 'N'],
+            ['tb_ptr_out_tb', 'logic', '$clog2(TB_SIZE)'],
             ])
         top.mod.reconfigUnit.addOutput([
             ['tx_data','logic',8],
@@ -354,10 +356,13 @@ class rtlHw():
             ['configData','logic',8],
             ['tb_mem_address','logic','$clog2(TB_SIZE)']])
         top.mod.reconfigUnit.addParameter([
+            ['M'],
             ['N'],
-            ['DATA_WIDTH'],
             ['TB_SIZE'],
-            ['MAX_CHAINS']])
+            ['DATA_WIDTH'],
+            ['MAX_CHAINS'],
+            ['FUVRF_SIZE'],
+            ['COMPRESSED']])
 
         # Input buffer
         top.includeModule("inputBuffer")
@@ -612,10 +617,13 @@ class rtlHw():
 
         top.instantiateModule(top.mod.reconfigUnit,"reconfig")
         top.inst.reconfig.setParameters([
+            ['M', 'M'],
             ['N','N'],
-            ['DATA_WIDTH','DATA_WIDTH'],
             ['TB_SIZE','TB_SIZE'],
-            ['MAX_CHAINS','MAX_CHAINS']])
+            ['DATA_WIDTH','DATA_WIDTH'],
+            ['MAX_CHAINS','MAX_CHAINS'],
+            ['FUVRF_SIZE', 'FUVRF_SIZE'],
+            ['COMPRESSED', 'COMPRESSED']])
 
         top.instantiateModule(top.mod.inputBuffer,"ib")
         top.inst.ib.setParameters([
@@ -696,7 +704,10 @@ class rtlHw():
                                     'rx_data': 'rx_data_comm', 
                                     'new_rx_data': 'new_rx_data_comm', 
                                     'tx_busy': 'tx_busy_comm',
-                                    'vector_out_tb': 'vector_out_tb'}
+                                    'vector_out_tb': 'vector_out_tb',
+                                    'compression_flag_out_tb':'compression_flag_out_tb',
+                                    'last_vector_out_dc':'last_vector_out_dc',
+                                    'tb_ptr_out_tb':'tb_ptr_out_tb'}
         top.inst.ib.instance_input={'clk': 'clk', 
                                     'enqueue': 'enqueue', 
                                     'eof_in': 'eof_in', 
