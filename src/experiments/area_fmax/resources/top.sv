@@ -11,6 +11,7 @@ module top (
     // Compile-time parameters
     parameter N=16;
     parameter M=4;
+    parameter DELTA_SLOTS=4;
     parameter DATA_WIDTH=32;
     parameter IB_DEPTH=32;
     parameter MAX_CHAINS=4;
