@@ -53,6 +53,15 @@ seeds[128] = {1:554, 8:386, 32:900, 128:857}
 # to use random seeds
 # seeds = lambda n, m: None
 
+# generate all of our experimental configurations
+# produces a list of tuples organized as (N, M, DELTA_SLOTS)
+delta_cfg = [2, 4, 8]
+nm = [[16, 1, 0], [16, 1, 0], [16, 4, 0], [16, 16, 0], [32, 1, 0], [32, 2, 0], [32, 8, 0], [32, 32, 0], [64, 1, 0], [64, 4, 0], [64, 16, 0], [64, 64, 0], [128, 1, 0], [128, 8, 0], [128, 32, 0], [128, 128, 0], [128, 32, 0]]
+experiments = []
+for e in nm:
+    for d in delta_cfg:
+        experiments.append((e[0], e[1], d))
+
 # project is generated with the name <timestamp>_<current commit>_lebug/
 PROJ_DIR = datetime.datetime.now().strftime("%Y%m%d%H%M") + "_" + subprocess.check_output("git rev-parse --short HEAD", shell=True).decode("utf-8").replace("\n", "") + "_lebug"
 
@@ -65,9 +74,9 @@ np.save(
     os.path.join(PROJ_DIR, "config.npy"),
     np.array([
         QUARTUS_BIN,
-        list([[16, 1, 0], [16, 1, 0], [16, 4, 0], [16, 16, 0], [32, 1, 0], [32, 2, 0], [32, 8, 0], [32, 32, 0], [64, 1, 0], [64, 4, 0], [64, 16, 0], [64, 64, 0], [128, 1, 0], [128, 8, 0], [128, 32, 0], [128, 128, 0], [128, 32, 0]]),
+        experiments,
         'mlDebug',
-        seeds
+        seeds,
     ], dtype=object),
     allow_pickle=True)
 

@@ -178,6 +178,7 @@ for idx, t in enumerate(tests):
         top_file="quartus_project/top.sv"
         replaceAfter(top_file,"N=",f'    parameter N={N};\n')
         replaceAfter(top_file,"M=",f'    parameter M={M};\n')
+        replaceAfter(top_file,"DELTA_SLOTS",f'    parameter DELTA_SLOTS={k};\n')
 
         print("\tUpdate seed")
         randomizeQuartusSeed(seeds[N][M])
