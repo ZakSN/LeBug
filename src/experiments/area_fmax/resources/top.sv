@@ -55,7 +55,8 @@ module top (
       .MAX_CHAINS(MAX_CHAINS),
       .TB_SIZE(TB_SIZE),
       .FUVRF_SIZE(FUVRF_SIZE),
-      .VVVRF_SIZE(VVVRF_SIZE)
+      .VVVRF_SIZE(VVVRF_SIZE),
+      .DELTA_SLOTS(DELTA_SLOTS)
     )
     dbg(
       .clk(clk),
