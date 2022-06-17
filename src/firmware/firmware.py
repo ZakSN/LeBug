@@ -204,7 +204,7 @@ def activationPredictiveness(cp):
     cp.v_mc_load()
     cp.vv_max(1,condition2='notfirst')
     cp.v_cache(1,condition1='last')
-    cp.v_commit(8,condition2='last') # Change this 8 to 1 to commit only one element at a time. This is currently at 8 only for test purposes.
+    cp.v_commit(1,condition2='last')
     cp.end_chain()
 
     return cp.compile()
