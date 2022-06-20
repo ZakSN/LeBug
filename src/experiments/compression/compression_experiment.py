@@ -105,8 +105,9 @@ class CompressionExperiment():
         }
         return ret
 
+    # XXX likely configured incorrectly -- not sure if results from this
+    # firmware present reasonable compression numbers for non-activation inputs
     def activation_predictiveness(self, **kwargs):
-        # should be run on activation data...
         this_emu_cfg = self.emu_cfg
         this_emu_cfg['BUILDING_BLOCKS'] = [
             'InputBuffer',
@@ -120,7 +121,7 @@ class CompressionExperiment():
         fw = firm.activationPredictiveness(emu.compiler)
         emu.config(fw)
         this_eof1_cfg = (self.eof1_cfg[0], self.eof1_cfg[1], lambda i: ~i)
-        this_eof2_cfg = (self.eof2_cfg[0], True, self.eof2_cfg[2])
+        this_eof2_cfg = (True, False, lambda i: False)
         ret = {
             'emu_cfg' : this_emu_cfg,
             'emu' : emu,
@@ -240,6 +241,7 @@ with open("compression_experiment.csv", 'w') as file:
             experiment = apparatus(**args)
             experiment['indata'] = indata
             experiment['num_frames'] = indata.shape[0]
+            #experiment['num_frames'] = 32
             #experiment['verbose'] = True
             cr = CompressionExperiment.run_experiment(**experiment)
             result = apparatus.__name__ + ", "+ str(delta_slots) + ", " + str(cr)
