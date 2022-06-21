@@ -132,7 +132,7 @@ class CompressionExperiment():
 
     # missing total invalidity
 
-    def run_experiment(emu_cfg, emu, indata, num_frames, eof1_cfg, eof2_cfg, verbose=None):
+    def run_experiment(emu_cfg, emu, indata, num_frames, eof1_cfg, eof2_cfg, sampling_frequency, verbose=None):
         # verbose print
         def v_print(*args):
             if verbose is not None:
@@ -141,7 +141,7 @@ class CompressionExperiment():
         # step through the frames in indata
         # each frame is assumed to be an arbitrary number of vectors long, with
         # each vector being N elemtents wide
-        for frame_idx in range(num_frames):
+        for frame_idx in range(0, num_frames, sampling_frequency):
             v_print("Processing frame "+str(frame_idx)+" of "+str(num_frames))
             inframe = indata[frame_idx]
 
@@ -230,6 +230,7 @@ results = {}
 
 # sweep number of delta slots for each experiment
 args = {'limits':(np.min(indata), np.max(indata))}
+sampling_frequency = 8
 with open("compression_experiment.csv", 'w') as file:
     file.write('firmware, delta slots, compression ratio\n')
     for apparatus in [ce.distribution, ce.summary, ce.spatial_sparsity, ce.norm_check, ce.activation_predictiveness]:
@@ -241,6 +242,7 @@ with open("compression_experiment.csv", 'w') as file:
             experiment = apparatus(**args)
             experiment['indata'] = indata
             experiment['num_frames'] = indata.shape[0]
+            experiment['sampling_frequency'] = sampling_frequency
             #experiment['num_frames'] = 32
             #experiment['verbose'] = True
             cr = CompressionExperiment.run_experiment(**experiment)
