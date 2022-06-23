@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import sys
 sys.path.insert(1, '../../../src')
 from emulator.emulator import emulatedHw
@@ -7,7 +8,9 @@ import firmware.firmware as firm
 sys.path.insert(1, '../../../examples')
 from test_utils import TestUtils
 from misc.misc import *
-import matplotlib.pyplot as plt
+import math
+import multiprocessing
+import pickle
 
 # class to encapsulate compression experiments
 class CompressionExperiment():
@@ -192,65 +195,92 @@ class CompressionExperiment():
         v_print(cr)
         return cr
 
-def plot_results(results):
-    markers = ['>', '+', 'o', 'v', 'x', 'X', 'D', '|']
-    for idx, key in enumerate(results):
-        plt.plot(*list(zip(*results[key])), label=key.replace('_', ' '), marker=markers[idx%8])
-    plt.plot((2, 4, 8, 16), (2, 4, 8, 16), linestyle='dotted', color='black', label="Ideal")
-    plt.title("Compression Ratio vs. DELTA_SLOTS")
-    plt.xlabel("DELTA_SLOTS [# $\delta$s to compress]")
-    plt.ylabel("Compression Ratio [(# vectors)/(# TB addrs)]")
-    plt.xticks(np.logspace(1, 4, num=4, base=2))
-    plt.yticks(np.arange(0, 17, 1))
-    plt.legend(title='Firmware name')
-    plt.grid(visible=True)
-    plt.savefig("compression_experiment.png")
-    plt.show()
+# reshape all frames in an input tensor to a matrix that is N elements wide,
+# padding any excess elements with 0
+# XXX by default clips to integers
+def prepare_data_frames(layer_data, N, asint=True):
+    indata = []
+    for frame_idx in range(layer_data.shape[0]):
+        frame = layer_data[frame_idx][0]
+        frame = frame.flatten()
+        frame.resize((math.ceil(frame.shape[0]/N), N))
+        if asint:
+            frame = frame.astype(int)
+        indata.append(frame)
+    return np.array(indata)
 
-# load the layer data
-raw = np.load("output_file.npy")
-
-# slice and concatenate the raw layer data into regular frames
-indata = []
-for frame_idx in range(raw.shape[0]):
-    frame = raw[frame_idx][0][0][:][:]
-    for i in range(1, raw.shape[2]):
-        frame = np.vstack((raw[frame_idx][0][i][:][:], frame))
-    indata.append(frame)
-indata = np.array(indata)
-
-# create a new experiment
-ce = CompressionExperiment()
-
-# XXX setting data type to int
-ce.emu_cfg['DATA_TYPE'] = 'int'
-indata = indata.astype(int)
-
-results = {}
-
-# sweep number of delta slots for each experiment
-args = {'limits':(np.min(indata), np.max(indata))}
-sampling_frequency = 8
-with open("compression_experiment.csv", 'w') as file:
-    file.write('firmware, delta slots, compression ratio\n')
-    for apparatus in [ce.distribution, ce.summary, ce.spatial_sparsity, ce.norm_check, ce.activation_predictiveness]:
+# create a function to encapsulate the inner experiment loops
+# this sweeps firmware and number of delta slots, and produces a pickled dictionary
+def experiment_process(sampling_frequency, layer, ce, results_directory):
+    indata = layer[1]
+    results = {}
+    args = {'limits':(np.min(indata), np.max(indata))}
+    for firmware in [ce.distribution, ce.summary, ce.spatial_sparsity, ce.norm_check, ce.activation_predictiveness]:
         for delta_slots in [2, 4, 8, 16]:
+            # configure the emulator
             ce.emu_cfg['DELTA_SLOTS'] = delta_slots
             ce.emu_cfg['PRECISION'] = int(ce.emu_cfg['DATA_WIDTH']/ce.emu_cfg['DELTA_SLOTS'])
             ce.emu_cfg['INV'] = twos_complement_min(ce.emu_cfg['PRECISION'])
 
-            experiment = apparatus(**args)
+            # setup the experiment
+            experiment = firmware(**args)
             experiment['indata'] = indata
             experiment['num_frames'] = indata.shape[0]
             experiment['sampling_frequency'] = sampling_frequency
-            #experiment['num_frames'] = 32
-            #experiment['verbose'] = True
-            cr = CompressionExperiment.run_experiment(**experiment)
-            result = apparatus.__name__ + ", "+ str(delta_slots) + ", " + str(cr)
-            file.write(result+'\n')
-            print(result)
-            if apparatus.__name__ not in results:
-                results[apparatus.__name__] = []
-            results[apparatus.__name__].append((delta_slots, cr))
 
-plot_results(results)
+            # get the compression ratio
+            cr = CompressionExperiment.run_experiment(**experiment)
+
+            # add the compression ratio to the appropriate range
+            if firmware.__name__ not in results:
+                results[firmware.__name__] = []
+            results[firmware.__name__].append((delta_slots, cr))
+
+    # pickle the results for later consumption by the plotting script
+    results_file = str(sampling_frequency) + "_" +  layer[0] + ".pickle"
+    with open(os.path.join(results_directory, results_file), 'wb') as file:
+        pickle.dump(results, file)
+
+# create a list of tensors to use as experimental input
+INPUT_TENSOR_DIR = "input_tensors"
+input_tensors = []
+for tensor in [t for t in os.listdir(INPUT_TENSOR_DIR) if t.split('.')[1] == 'npy']:
+    input_tensors.append((
+        tensor.split('.')[0],
+        prepare_data_frames(np.load(os.path.join(INPUT_TENSOR_DIR, tensor)), 32)))
+
+# create a new experiment, and set up the emulator to process ints
+ce = CompressionExperiment()
+ce.emu_cfg['DATA_TYPE'] = 'int'
+
+# create a directory to store experimental results
+RESULTS_DIRECTORY = "results"
+try:
+    if not os.path.exists(RESULTS_DIRECTORY):
+        os.makedirs(RESULTS_DIRECTORY)
+except OSError:
+    print('ERROR: could not make results directory')
+    exit()
+
+# run the experiment (in parallel so it hopefully goes a little faster)
+proc = []
+for sampling_frequency in [1, 2, 4, 8]:
+    for layer in input_tensors:
+        p = multiprocessing.Process(
+            target=experiment_process,
+            args=(sampling_frequency, layer, ce, RESULTS_DIRECTORY))
+        proc.append(p)
+
+print("Running " + str(len(proc)) + " experiments")
+
+# set off all of the experiments
+for p in proc:
+    p.start()
+
+still_running = True
+while still_running:
+    still_running = False
+    for p in proc:
+        p.join(timeout=1)
+        if p.is_alive():
+            still_running = True
