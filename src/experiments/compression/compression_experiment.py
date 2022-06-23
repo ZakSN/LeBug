@@ -50,6 +50,18 @@ class CompressionExperiment():
             lambda i: i
         )
 
+    def raw(self, **kwargs):
+        emu = emulatedHw(**self.emu_cfg)
+        fw = firm.raw(emu.compiler)
+        emu.config(fw)
+        ret = {
+            'emu_cfg' : self.emu_cfg,
+            'emu' : emu,
+            'eof1_cfg' : self.eof1_cfg,
+            'eof2_cfg' : self.eof2_cfg,
+        }
+        return ret
+
     def distribution(self, **kwargs):
         emu = emulatedHw(**self.emu_cfg)
         emu.fu.vrf=list(range(self.emu_cfg['FUVRF_SIZE']*self.emu_cfg['M']))
@@ -212,10 +224,14 @@ def prepare_data_frames(layer_data, N, asint=True):
 # create a function to encapsulate the inner experiment loops
 # this sweeps firmware and number of delta slots, and produces a pickled dictionary
 def experiment_process(sampling_frequency, layer, ce, results_directory):
+    results_file = str(sampling_frequency) + "_" +  layer[0] + ".pickle"
+    if os.path.exists(os.path.join(results_directory, results_file)):
+        print("Results for: " + results_file + " all ready exist. Skipping.")
+        return
     indata = layer[1]
     results = {}
     args = {'limits':(np.min(indata), np.max(indata))}
-    for firmware in [ce.distribution, ce.summary, ce.spatial_sparsity, ce.norm_check, ce.activation_predictiveness]:
+    for firmware in [ce.raw, ce.distribution, ce.summary, ce.spatial_sparsity, ce.norm_check, ce.activation_predictiveness]:
         for delta_slots in [2, 4, 8, 16]:
             # configure the emulator
             ce.emu_cfg['DELTA_SLOTS'] = delta_slots
@@ -237,7 +253,6 @@ def experiment_process(sampling_frequency, layer, ce, results_directory):
             results[firmware.__name__].append((delta_slots, cr))
 
     # pickle the results for later consumption by the plotting script
-    results_file = str(sampling_frequency) + "_" +  layer[0] + ".pickle"
     with open(os.path.join(results_directory, results_file), 'wb') as file:
         pickle.dump(results, file)
 
