@@ -1,0 +1,131 @@
+import matplotlib.pyplot as plt
+from matplotlib import colors
+import matplotlib.patheffects as PathEffects
+import numpy as np
+from math import log
+
+# matplot lib scaling is wonky, this script probably doesn't work right unless
+# you've got exactly the same resolution screen as me...
+
+fccm_21_data = np.array([
+    # M = N/1,      N/4,           N/16,         N/N
+    [[191,   9800], [177,   6200], [178,  5100], [178,  5100],], # N = 16
+    [[160,  28700], [177,  14400], [173, 10900], [184, 10300],], # N = 32
+    [[145,  95300], [169,  38100], [185, 23800], [177, 20300],], # N = 64
+    [[129, 342600], [129, 114000], [165, 57000], [168, 40300],], # N = 128
+])
+
+def parse_file(to_parse):
+    data = []
+    cont = True
+    with open(to_parse) as log:
+        for line in log:
+            line = line.split()
+            f = float(line[1])
+            a = float(line[2])
+            nmd = line[0].split("_")
+            n = float(nmd[0])
+            m = float(nmd[1])
+            d = float(nmd[2])
+            data.append((n,m,d,f,a))
+    return data
+
+data = parse_file("202206092133_1b5d214_summary.rpt")
+by_N = []
+by_4 = []
+by_16 = []
+by_1 = []
+for datum in data:
+    if datum[1] == (datum[0]/datum[0]):
+        by_N.append((datum[0],datum[2],(datum[3],datum[4])))
+    if datum[1] == (datum[0]):
+        by_1.append((datum[0],datum[2],(datum[3],datum[4])))
+    if datum[1] == (datum[0]/4):
+        by_4.append((datum[0],datum[2],(datum[3],datum[4])))
+    if datum[1] == (datum[0]/16):
+        by_16.append((datum[0],datum[2],(datum[3],datum[4])))
+
+def plot_data_3d(r, l):
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    for dataset in [by_N, by_1, by_4, by_16]:
+        to_plot = list(zip(*dataset))
+        to_plot[2] = list(zip(*to_plot[2]))[r]
+        x = np.array(to_plot[0])
+        y = np.array(to_plot[1])
+        z = np.array(to_plot[2])
+        x = np.expand_dims(x, 1)
+        y = np.expand_dims(y, 1)
+        z = np.expand_dims(z, 1)
+        ax.scatter(x, y, z,)
+    ax.set_xlabel("N [# of vector elements]")
+    ax.set_xticks([16, 32, 63, 128])
+    ax.set_ylabel("DELTA_SLOTS [# of $\delta$s to compress]")
+    ax.set_yticks([2, 4, 8])
+    ax.set_zlabel(l)
+    plt.show()
+
+#plot_data_3d(0, "Frequency [MHz]")
+#plot_data_3d(1, "Area [# of ALMs]")
+
+def plot_data_2d(r, l, p, name=None, invert=False):
+    def get_triple():
+            x = int(log(pt[1], 2)) - 1
+            y = int(log(pt[0]/16, 2))
+            z = pt[2][r]
+            return x, y, z
+    def get_pdiff(y, idx, r, z, p):
+        f = fccm_21_data[y][idx][r]
+        pdiff = ((z - f)/f)*100
+        if p == True:
+            return pdiff
+        else:
+            return z
+    fig = plt.figure(figsize=(20, 20))
+    data = np.zeros((3, 4, 4))
+    for idx, dataset in enumerate([(by_1, "M=N"), (by_4, "M=N/4"), (by_16, "M=N/16"), (by_N, "M=1")]):
+        for pt in dataset[0]:
+            x,y,z = get_triple()
+            pdiff = get_pdiff(y, idx, r, z, p)
+            data[x][y][idx] = pdiff
+    min_z = np.min(data)
+    max_z = np.max(data)
+    first = True
+    for idx, dataset in enumerate([(by_1, "M=N"), (by_4, "M=N/4"), (by_16, "M=N/16"), (by_N, "M=1")]):
+        ax = fig.add_subplot(1, 4, idx+1)
+        for pt in dataset[0]:
+            x,y,z = get_triple()
+            pdiff = get_pdiff(y, idx, r, z, p)
+            txt = str("{:.0f}".format(pdiff))
+            if p:
+                txt = txt + "%"
+            plt.text(y, x, txt,
+                     ha='center',
+                     fontsize=20,
+                     path_effects=[PathEffects.withStroke(linewidth=3, foreground='w')])
+        if invert == False:
+            cmap = "Greys"
+        else:
+            cmap = "Greys_r"
+        ax.imshow(data[:, :, idx], cmap=cmap, vmin=min_z, vmax=max_z)
+        plt.title(dataset[1])
+        plt.xlabel("N [# of vector elements]")
+        ax.set_xticks(np.arange(0, 4, 1))
+        ax.set_xticklabels([16, 32, 64, 128])
+        ax.set_yticks(np.arange(0, 3, 1))
+        ax.set_yticklabels([2, 4, 8])
+        plt.gca().invert_yaxis()
+        plt.gca().invert_xaxis()
+        if first:
+            plt.ylabel("DELTA_SLOTS [# of $\delta$s to compress]")
+            first = False
+    fig.suptitle(l, y=0.58)
+    if name is not None:
+        fig.savefig(name + ".png", dpi=300, bbox_inches='tight')
+    plt.show()
+
+plot_data_2d(0, "$F_{max}$ Percent Difference From Previous Work", True, name="fmax_percent_diff", invert=False)
+plot_data_2d(1, "Area Percent Difference From Previous Work", True, name="area_percent_diff", invert=True)
+
+plot_data_2d(0, "Frequency [MHz], for: ", False)
+plot_data_2d(1, "Area [# ALM], for: ", False)
