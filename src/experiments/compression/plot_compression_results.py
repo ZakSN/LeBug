@@ -2,36 +2,45 @@ import os
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import math
 
 # draw a plot
 def plot_results(layer_list, figdir):
     markers = ['>', '+', 'o', 'v', 'x', 'X', 'D', '|']
-    fig = plt.figure(figsize=(20, 20))
+    fig = plt.figure(figsize=(12, 3))
+    gs = gridspec.GridSpec(1, 4)
+    gs.update(wspace=0.1)
+    plt.rc('xtick', labelsize=12)
+    plt.rc('ytick', labelsize=12)
     first  = True
     for idx, configuration in enumerate(layer_list):
         results = configuration[2]
         layer_name = configuration[1]
         sampling_frequency = configuration[0]
-        ax = fig.add_subplot(1, 4, int(math.log(sampling_frequency, 2))+1, aspect=0.66)
+        #ax = fig.add_subplot(1, 4, int(math.log(sampling_frequency, 2))+1, aspect=0.66)
+        ax = plt.subplot(gs[int(math.log(sampling_frequency, 2))], aspect=0.66)
         for idx, key in enumerate(results):
             plt.plot(*list(zip(*results[key])), label=key.replace('_', ' '), marker=markers[idx%8])
-        plt.plot((2, 4, 8, 16), (2, 4, 8, 16), linestyle='dotted', color='black', label="Ideal")
+        plt.plot((2, 4, 8, 16), (2*(64/65), 4*(64/65), 8*(64/65), 16*(64/65)), linestyle='dotted', color='black', label="Ideal")
         plt.xscale('log', base=2)
         plt.yscale('log', base=2)
         plt.xlim(2, 8)
         plt.ylim(0.9, 8)
         plt.title("Sampling Period: " + str(sampling_frequency))
-        plt.xlabel("DELTA_SLOTS [# $\delta$s to compress]")
+        #plt.xlabel("DELTA_SLOTS [# $\delta$s to compress]")
         plt.grid(visible=True)
-        if int(math.log(sampling_frequency, 2)) == 0:
-            plt.ylabel("Compression Ratio [(# vectors)/(# TB addrs)]")
+        if not first:
+            ax = plt.gca()
+            ax.axes.yaxis.set_ticklabels([])
         if first:
-            plt.figlegend(title='Firmware name', bbox_to_anchor = (0.51, 0.355),loc = 'lower center', ncol=len(results)+1, borderaxespad=0)
+            plt.figlegend(title='Firmware name', bbox_to_anchor = (0.6, -0.2),loc = 'lower center', ncol=math.ceil((len(results)+1)/2), borderaxespad=0)
             #plt.figlegend(title='Firmware name', loc = (0.2, 0.25), ncol=len(results)+1)
             #plt.figlegend(title='Firmware name', loc = (0.88, 0.5))
             first = False
-    fig.suptitle("Compression Ratio vs. DELTA_SLOTS for Layer: " + layer_name, y=0.61)
+    #fig.suptitle("Compression Ratio vs. DELTA_SLOTS for Layer: " + layer_name, y=0.61)
+    fig.supylabel("Compression Ratio", x=0.08)
+    fig.supxlabel("delta slots", x=0.21, y=-0.09)
     plt.savefig(os.path.join(figdir, layer_name.replace(' ', '_') + ".png"), bbox_inches='tight')
     #plt.show()
 
