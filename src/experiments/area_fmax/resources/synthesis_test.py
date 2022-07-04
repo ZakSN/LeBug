@@ -88,8 +88,8 @@ def saveResults(t,programWasKilled):
         test_id=getID(t)
         backupFolder='results/'+test_id
         call(["mkdir", "-p",backupFolder])
-        call(["cp", topFitFile, backupFolder])
-        call(["cp", topStaFile, backupFolder])
+        call(["mv", topFitFile, backupFolder])
+        call(["mv", topStaFile, backupFolder])
 
     #Printing results
     print ("\t\tfMax: "+fMax +" MHz")
