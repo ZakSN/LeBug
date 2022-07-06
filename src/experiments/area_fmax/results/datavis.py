@@ -15,6 +15,14 @@ fccm_21_data = np.array([
     [[129, 342600], [129, 114000], [165, 57000], [168, 40300],], # N = 128
 ])
 
+lebug_HEAD_data = np.array([
+    # M = N/1,         N/4,              N/16,            N/N
+    [[149.19,   9522], [154.11,   5948], [153.33,  5031], [153.33,   5031],], # N = 16
+    [[147.36,  28282], [144.8,   13977], [144.45, 10399], [148.26,   9812],], # N = 32
+    [[126.69,  94511], [135.08,  37276], [145.29, 22859], [137.84,  19411],], # N = 64
+    [[None, None], [130.33, 113258], [139.18, 55887], [141.18, 39341],], # N = 128
+])
+
 def parse_file(to_parse):
     data = []
     cont = True
@@ -75,7 +83,10 @@ def plot_data_2d(r, l, p, name=None, invert=False):
             z = pt[2][r]
             return x, y, z
     def get_pdiff(y, idx, r, z, p):
-        f = fccm_21_data[y][idx][r]
+        #f = fccm_21_data[y][idx][r]
+        f = lebug_HEAD_data[y][idx][r]
+        if f == None or z == None:
+            return None
         pdiff = ((z - f)/f)*100
         if p == True:
             return pdiff
@@ -88,20 +99,25 @@ def plot_data_2d(r, l, p, name=None, invert=False):
             x,y,z = get_triple()
             pdiff = get_pdiff(y, idx, r, z, p)
             data[x][y][idx] = pdiff
-    min_z = np.min(data)
-    max_z = np.max(data)
+    min_z = np.nanmin(data)
+    max_z = np.nanmax(data)
     first = True
     for idx, dataset in enumerate([(by_1, "M=N"), (by_4, "M=N/4"), (by_16, "M=N/16"), (by_N, "M=1")]):
         ax = fig.add_subplot(1, 4, idx+1)
         for pt in dataset[0]:
             x,y,z = get_triple()
             pdiff = get_pdiff(y, idx, r, z, p)
-            txt = str("{:.0f}".format(pdiff))
-            if p:
-                txt = txt + "%"
+            fs = 20
+            if pdiff == None:
+                txt = 'D.N.R.'
+                fs=15
+            else:
+                txt = str("{:.0f}".format(pdiff))
+                if p:
+                    txt = txt + "%"
             plt.text(y, x, txt,
                      ha='center',
-                     fontsize=20,
+                     fontsize=fs,
                      path_effects=[PathEffects.withStroke(linewidth=3, foreground='w')])
         if invert == False:
             cmap = "Greys"
