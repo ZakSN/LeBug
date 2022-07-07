@@ -48,7 +48,6 @@ class TestEmulator(unittest.TestCase):
         # Decompress the tracebuffer
         dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
-        decomp_tb = np.array(encodedIntTofloat(decomp_tb,self.DATA_WIDTH))
 
         # Test distribution
         self.assertTrue(np.allclose(decomp_tb[-1],[ 1,2,1,0,1,1,1,1]))
@@ -78,7 +77,6 @@ class TestEmulator(unittest.TestCase):
         # Decompress the tracebuffer
         dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
-        decomp_tb = np.array(encodedIntTofloat(decomp_tb,self.DATA_WIDTH))
 
         # Test dual distribution
         self.assertTrue(np.allclose(decomp_tb[-1],[ 2.,5.,1.,0.,2.,2.,2.,2.]))
@@ -136,11 +134,10 @@ class TestEmulator(unittest.TestCase):
         # Decompress the tracebuffer
         dd = DeltaDecompressor(self.N,self.DATA_WIDTH,self.DELTA_SLOTS,self.TB_SIZE)
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
-        decomp_tb = np.array(encodedIntTofloat(decomp_tb,self.DATA_WIDTH))
 
         # Test spatial sparsity
-        self.assertTrue(np.allclose(decomp_tb[0],[ 1.,1.,1.,1.,0.,1.,0.,1.]))
-        self.assertTrue(np.allclose(decomp_tb[1],[ 1.,0.,1.,1.,1.,1.,0.,0.]))
+        self.assertTrue(np.allclose(decomp_tb[0],[ 1,1,1,1,0,1,0,1]))
+        self.assertTrue(np.allclose(decomp_tb[1],[ 1,0,1,1,1,1,0,0]))
 
     def test_Correlation(self):
 

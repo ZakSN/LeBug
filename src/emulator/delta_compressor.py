@@ -38,8 +38,6 @@ class DeltaCompressor():
         if v_in_valid == 0:
             return v_out_valid, v_out_comp, v_out, inc_tb_ptr
 
-        v_in = v_in.astype(int)
-
         assert_vector_size(v_in, self.N, self.DATA_MIN, self.DATA_MAX)
 
         # first cycle should only fill the last vector register

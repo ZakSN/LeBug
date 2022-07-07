@@ -9,7 +9,7 @@ def distribution(cp,bins,M):
         cp.m_reduce('M')
         cp.vv_add(i,'notfirst')
         cp.v_cache(i)
-        cp.v_commit(M,'last')
+        cp.v_commit(M,'last',cast_to_int=True)
         cp.end_chain()
     return cp.compile()
 
@@ -42,7 +42,7 @@ def spatialSparsity(cp,N):
     cp.begin_chain()
     cp.vv_filter(0)
     cp.m_reduce('N')
-    cp.v_commit(N)
+    cp.v_commit(N,cast_to_int=True)
     cp.end_chain()
     return cp.compile()
 

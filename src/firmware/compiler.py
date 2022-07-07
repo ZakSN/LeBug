@@ -11,7 +11,7 @@ class compiler():
         self.mvru  = struct(axis=0)
         self.vsru  = struct(op=0)
         self.vvalu = struct(op=0,addr=0,cond1=copy(no_cond),cond2=copy(no_cond),cache=0,cache_addr=0,minicache=0,cache_cond1=copy(no_cond),cache_cond2=copy(no_cond))
-        self.dp    = struct(commit=0,size=0,cond1=copy(no_cond),cond2=copy(no_cond))
+        self.dp    = struct(commit=0,cast_to_int=0,size=0,cond1=copy(no_cond),cond2=copy(no_cond))
     def vv_filter(self,addr):
         self.fu.filter=1
         self.fu.addr=addr
@@ -59,7 +59,7 @@ class compiler():
             self.vvalu.minicache+=2
         else:
             assert False, "Trying to save to save minicache more than once per chain"
-    def v_commit(self,size=None,condition1=None, condition2=None):
+    def v_commit(self,size=None,condition1=None, condition2=None,cast_to_int=False):
         if size is None:
             size = self.N
         self.dp.commit=1
@@ -67,6 +67,8 @@ class compiler():
             self.dp.size=size
         else:
             assert False, "Cannot commit "+str(size)+" elements"
+        if cast_to_int:
+            self.dp.cast_to_int = 1
         self.dp.cond1[condition1]=self.__process_condition(condition1)
         self.dp.cond2[condition2]=self.__process_condition(condition2)
     def end_chain(self):

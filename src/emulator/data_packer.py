@@ -6,7 +6,7 @@ from misc.misc import *
 
 # Packs data efficiently
 class DataPacker():
-    def __init__(self,N,M):
+    def __init__(self,N,M,DATA_TYPE,DATA_WIDTH,DATA_MAX):
         self.v_in=np.zeros(N)
         self.v_out=np.zeros(N)
         self.eof_in = [False,False]
@@ -16,6 +16,9 @@ class DataPacker():
         self.v_out_size=0
         self.config=None
         self.N = N
+        self.DATA_TYPE=DATA_TYPE
+        self.DATA_WIDTH = DATA_WIDTH
+        self.DATA_MAX = DATA_MAX
 
     def step(self,input_value):
         cfg=self.config[self.chainId_in]
@@ -42,5 +45,24 @@ class DataPacker():
         else:
             self.v_out_valid=0
         self.v_in, self.eof_in, self.bof_in, self.chainId_in = copy(input_value)
+
+        # the output of numpy is always floats, but the delta compressor must
+        # operate on either fixed point numbers or integers. Additionally, the
+        # user may decide to do processing in fixed point arithmetic, but store
+        # integer results (which are more compressible). Thus, we must also
+        # enforce the cast_to_int firmware flag
+        if cfg.cast_to_int or (self.DATA_TYPE == 'int'):
+            # if the output should be an integer, cast it to int
+            self.v_out = self.v_out.astype(int)
+        else:
+            # if we have a floating point number, turn it into a fixed point
+            # number encoded in a two's complement integer
+            def f(x):
+                if x > self.DATA_MAX:
+                    return x - ((2**self.DATA_WIDTH)-1)
+                return x
+            vect_f = np.vectorize(f)
+            vector = np.squeeze(np.array(floatToEncodedInt(self.v_out,self.DATA_WIDTH)))
+            self.vou_t = vect_f(vector).astype(int)
         return self.v_out, self.v_out_valid
 

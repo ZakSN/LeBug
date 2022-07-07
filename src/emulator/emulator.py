@@ -42,7 +42,7 @@ class emulatedHw():
                 self.log['vsru'].append(chain)
             elif b=='DataPacker':
                 packed_data = self.dp.step(chain)
-                packed_data = (self.enforce_data_type(packed_data[0]), packed_data[1])
+                packed_data = (packed_data[0], packed_data[1])
                 self.log['dp'].append(packed_data)
             elif b=='DeltaCompressor':
                 compressed_data = self.dc.step(packed_data)
@@ -65,7 +65,7 @@ class emulatedHw():
         self.mvru.config=[struct(axis=0)]
         self.vsru.config=[struct(op=0)]
         self.vvalu.config=[struct(op=0,addr=0,cache=0,cache_addr=0,cond1=copy(no_cond),cond2=copy(no_cond),minicache=0,cache_cond1=copy(no_cond),cache_cond2=copy(no_cond))]
-        self.dp.config=[struct(commit=0,size=0,cond1=copy(no_cond),cond2=copy(no_cond))]
+        self.dp.config=[struct(commit=0,cast_to_int=0,size=0,cond1=copy(no_cond),cond2=copy(no_cond))]
         self.ib.config=struct(num_chains=1)
         if fw is not None:
             self.ib.config=struct(num_chains=fw['valid_chains']+1)
@@ -84,23 +84,6 @@ class emulatedHw():
         for i in range(steps):
             self.step()
         return self.log
-
-    def enforce_data_type(self, vector):
-        '''
-        delta compression requires fixed precision numbers (modeled with
-        integers in the delta compression emulator), since it involves
-        bit manipulation. Since python floats are arbitrary precision we need
-        to convert them to integer encoding like what is used in hardware.
-        '''
-        if self.DATA_TYPE == 'int':
-            return vector
-        def f(x):
-            if x > self.DATA_MAX:
-                return x - ((2**self.DATA_WIDTH)-1)
-            return x
-        vect_f = np.vectorize(f)
-        vector = np.squeeze(np.array(floatToEncodedInt(vector,self.DATA_WIDTH)))
-        return vect_f(vector)
 
     def __init__(self,N,M,IB_DEPTH,FUVRF_SIZE,VVVRF_SIZE,TB_SIZE,MAX_CHAINS,
                  BUILDING_BLOCKS,DATA_WIDTH,DELTA_SLOTS,DATA_TYPE,**kwargs):
@@ -126,7 +109,7 @@ class emulatedHw():
         self.mvru = MatrixVectorReduce(N,M)
         self.vsru = VectorScalarReduce(N)
         self.vvalu= VectorVectorALU(N,VVVRF_SIZE)
-        self.dp   = DataPacker(N,M)
+        self.dp   = DataPacker(N,M,DATA_TYPE,DATA_WIDTH,self.DATA_MAX)
         self.dc   = DeltaCompressor(N,DATA_WIDTH,DELTA_SLOTS,INV)
         self.tb   = TraceBuffer(N,TB_SIZE,DELTA_SLOTS,PRECISION,INV)
         self.config()
