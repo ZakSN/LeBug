@@ -8,6 +8,7 @@
   parameter M=2,
   parameter DATA_WIDTH=32,
   parameter MAX_CHAINS=4,
+  parameter DATA_TYPE=0,
   parameter PERSONAL_CONFIG_ID=0,
   parameter [7:0] INITIAL_FIRMWARE      [0:MAX_CHAINS-1] = '{MAX_CHAINS{0}},
   parameter [7:0] INITIAL_FIRMWARE_COND [0:MAX_CHAINS-1] = '{MAX_CHAINS{0}}
@@ -49,10 +50,10 @@
       // If we overflow, we just submit things as they are (This may happen if we are mixing precisions)
       if (valid_in==1'b1 && tracing==1'b1 && commit==1'b1 && cond_valid==1'b1) begin
         if (total_length>N) begin 
-            if (cast_to_int == 1'b1) begin
+            if (cast_to_int == 1'b1 && DATA_TYPE != 0) begin
               //shift
               for (i = 0; i < N; i++) begin
-                vector_out[i]<= (packed_data[i] >> (DATA_WIDTH/2));
+                vector_out[i]<= (signed'(packed_data[i] >>> (DATA_WIDTH/2))-signed'(packed_data[i][DATA_WIDTH-1]));
               end
             end
             else begin
@@ -64,10 +65,10 @@
         end
         else if (total_length==N) begin 
             if (vector_length==1) begin
-              if (cast_to_int == 1'b1) begin
+              if (cast_to_int == 1'b1 && DATA_TYPE != 0) begin
                 //shift
                 for (i = 0; i < N; i++) begin
-                  vector_out[i]<=(pack_1[i] >> (DATA_WIDTH/2));
+                  vector_out[i]<=(signed'(pack_1[i]) >>> (DATA_WIDTH/2))-signed'(pack_1[i][DATA_WIDTH-1]);
                 end
               end
               else begin
@@ -75,10 +76,10 @@
               end
             end
             else if (vector_length==M) begin
-              if (cast_to_int == 1'b1) begin
+              if (cast_to_int == 1'b1 && DATA_TYPE != 0) begin
                 //shift
                 for (i = 0; i < N; i++) begin
-                  vector_out[i]<=(pack_M[i] >> (DATA_WIDTH/2));
+                  vector_out[i]<=(signed'(pack_M[i]) >>> (DATA_WIDTH/2))-signed'(pack_M[i][DATA_WIDTH-1]);
                 end
               end
               else begin
@@ -86,10 +87,10 @@
               end
             end
             else begin
-              if (cast_to_int == 1'b1) begin
+              if (cast_to_int == 1'b1 && DATA_TYPE != 0) begin
                 //shift
                 for (i = 0; i < N; i++) begin
-                  vector_out[i]<=(vector_in[i] >> (DATA_WIDTH/2));
+                  vector_out[i]<=(signed'(vector_in[i]) >>> (DATA_WIDTH/2))-signed'(vector_in[i][DATA_WIDTH-1]);
                 end
               end
               else begin

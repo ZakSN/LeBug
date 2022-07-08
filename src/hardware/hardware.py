@@ -490,6 +490,7 @@ class rtlHw():
             ['M'],
             ['DATA_WIDTH'],
             ['MAX_CHAINS'],
+            ['DATA_TYPE'],
             ['PERSONAL_CONFIG_ID'],
             ['INITIAL_FIRMWARE'],
             ['INITIAL_FIRMWARE_COND']])
@@ -683,6 +684,7 @@ class rtlHw():
             ['M','M'],
             ['DATA_WIDTH','DATA_WIDTH'],
             ['MAX_CHAINS','MAX_CHAINS'],
+            ['DATA_TYPE','DATA_TYPE'],
             ['PERSONAL_CONFIG_ID','4'],
             ['INITIAL_FIRMWARE',DP_INITIAL_FIRMWARE],
             ['INITIAL_FIRMWARE_COND',DP_INITIAL_FIRMWARE_COND]])
