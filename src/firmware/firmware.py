@@ -102,9 +102,9 @@ def sumAll(cp):
     return cp.compile()
 
 # Raw values
-def raw(cp):
+def raw(cp, cast_to_int=False):
     cp.begin_chain()
-    cp.v_commit()
+    cp.v_commit(cast_to_int=cast_to_int)
     cp.end_chain()
     return cp.compile()
 

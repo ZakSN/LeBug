@@ -127,7 +127,7 @@ class TestHardware(unittest.TestCase, TestUtils):
                 emu_proc.push([input_vectors_as_float,eof1[i],eof2[i]])
             hw_proc.push([input_vectors[i],eof1[i],eof2[i]])
 
-    def test_raw(self):
+    def raw_prototype(self, cast, decompress_type):
 
         # Instantiate HW and Emulator Processors
         hw_proc  = rtlHw(**self.cfg)
@@ -138,7 +138,7 @@ class TestHardware(unittest.TestCase, TestUtils):
         self.pushVals(emu_proc,hw_proc,num_input_vectors,neg_vals=True)
 
         # Configure firmware - Both HW and Emulator work with the same firmware
-        fw = firm.raw(hw_proc.compiler)
+        fw = firm.raw(hw_proc.compiler, cast_to_int=cast)
         emu_proc.config(fw)
         hw_proc.config(fw)
 
@@ -148,10 +148,42 @@ class TestHardware(unittest.TestCase, TestUtils):
         emu_results = emu_proc.run(steps=steps)
 
         # Filter Results
-        emu_results_filtered, hw_results_filtered = self.filterResults(emu_results, hw_results, self.DATA_TYPE)
+        emu_results_filtered, hw_results_filtered = self.filterResults(emu_results, hw_results, decompress_type)
 
         # Verify that results are equal
         self.assertTrue(np.allclose(emu_results_filtered,hw_results_filtered,rtol=0.01))
+
+    def test_raw_int_cast(self):
+        # store parameter_state
+        old_parameter_state = self.cfg
+        self.cfg['DATA_TYPE']='int'
+        self.raw_prototype(True, 'int')
+        # restore parameter_state
+        self.cfg = old_parameter_state
+
+    def test_raw_int_nocast(self):
+        # store parameter_state
+        old_parameter_state = self.cfg
+        self.cfg['DATA_TYPE']='int'
+        self.raw_prototype(False, 'int')
+        # restore parameter_state
+        self.cfg = old_parameter_state
+
+    def test_raw_fxp_cast(self):
+        # store parameter_state
+        old_parameter_state = self.cfg
+        self.cfg['DATA_TYPE']='fixed_point'
+        self.raw_prototype(True, 'int')
+        # restore parameter_state
+        self.cfg = old_parameter_state
+
+    def test_raw_fxp_nocast(self):
+        # store parameter_state
+        old_parameter_state = self.cfg
+        self.cfg['DATA_TYPE']='fixed_point'
+        self.raw_prototype(False, 'fixed_point')
+        # restore parameter_state
+        self.cfg = old_parameter_state
 
     def test_multipleChains(self):
 
