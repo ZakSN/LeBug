@@ -46,6 +46,11 @@ class DataPacker():
             self.v_out_valid=0
         self.v_in, self.eof_in, self.bof_in, self.chainId_in = copy(input_value)
 
+        v_out_encoded = self.v_out
+        if v_out_encoded.size == 1:
+            # apparently numpy sometimes emits scalars, which are not in
+            # an array
+            v_out_encoded = np.reshape(v_out_encoded, v_out_encoded.size)
         # the output of numpy is always floats, but the delta compressor must
         # operate on either fixed point numbers or integers. Additionally, the
         # user may decide to do processing in fixed point arithmetic, but store
@@ -53,7 +58,7 @@ class DataPacker():
         # enforce the cast_to_int firmware flag
         if cfg.cast_to_int or (self.DATA_TYPE == 'int'):
             # if the output should be an integer, cast it to int
-            self.v_out = self.v_out.astype(int)
+            v_out_encoded = v_out_encoded.astype(int)
         else:
             # if we have a floating point number, turn it into a fixed point
             # number encoded in a two's complement integer
@@ -62,7 +67,7 @@ class DataPacker():
                     return x - ((2**self.DATA_WIDTH)-1)
                 return x
             vect_f = np.vectorize(f)
-            vector = np.squeeze(np.array(floatToEncodedInt(self.v_out,self.DATA_WIDTH)))
-            self.vou_t = vect_f(vector).astype(int)
-        return self.v_out, self.v_out_valid
+            vector = np.squeeze(np.array(floatToEncodedInt(v_out_encoded,self.DATA_WIDTH)))
+            v_out_encoded = vect_f(vector).astype(int)
+        return v_out_encoded, self.v_out_valid
 
