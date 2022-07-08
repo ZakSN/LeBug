@@ -185,7 +185,7 @@ def minicache(cp):
     return cp.compile()
 
 # Activation Predictiveness
-def activationPredictiveness(cp):
+def activationPredictiveness(cp, elements_to_commit=1):
     # First we sum all activations of all nodes in address 0 (we will expect eof[0] to start a new sum)
     # Once we receive eof[0] we will check the max between this value and the one stored in the cache at address 1.
     # mc_save and mc_load are used to pass the average values from chain1 to chain2
@@ -204,7 +204,7 @@ def activationPredictiveness(cp):
     cp.v_mc_load()
     cp.vv_max(1,condition2='notfirst')
     cp.v_cache(1,condition1='last')
-    cp.v_commit(1,condition2='last')
+    cp.v_commit(elements_to_commit,condition2='last')
     cp.end_chain()
 
     return cp.compile()

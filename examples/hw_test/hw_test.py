@@ -324,7 +324,7 @@ class TestHardware(unittest.TestCase, TestUtils):
         self.pushVals(emu_proc,hw_proc,num_input_vectors,eof1,eof2)
 
         # Configure firmware - Both HW and Emulator work with the same firmware
-        fw = firm.activationPredictiveness(hw_proc.compiler)
+        fw = firm.activationPredictiveness(hw_proc.compiler,elements_to_commit=8)
         emu_proc.config(fw)
         hw_proc.config(fw)
 
