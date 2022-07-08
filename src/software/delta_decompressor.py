@@ -4,6 +4,7 @@ from misc.misc import *
 class DeltaDecompressor():
     def __init__(self,N,DATA_WIDTH,DELTA_SLOTS,TB_SIZE):
         self.N = N
+        self.DATA_WIDTH = DATA_WIDTH
         assert DATA_WIDTH%DELTA_SLOTS == 0, "data width must be divisible by delta slots"
         self.PRECISION = int(DATA_WIDTH/DELTA_SLOTS)
         self.DELTA_SLOTS = DELTA_SLOTS
@@ -50,4 +51,11 @@ class DeltaDecompressor():
             if tbptr == stop:
                 break
 
-        return decompressed.astype(int)
+        # python wants to play silly games with dynamic precision, so we have
+        # clip the result to DATA_WIDTH bits, and then convert it to a two's
+        # complement number
+        decompressed = decompressed.astype(int)
+        mask = ~(-1 << self.DATA_WIDTH)
+        decompressed = np.bitwise_and(decompressed, mask)
+        decompressed = np.array(toInt(decompressed, twos=self.DATA_WIDTH))
+        return decompressed
