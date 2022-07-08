@@ -34,10 +34,13 @@
     reg [31:0] total_length;
     reg [31:0] vector_length;
     reg commit;
+    reg cast_to_int;
     reg cond_valid;
     wire [DATA_WIDTH-1:0] pack_1 [N-1:0];
     wire [DATA_WIDTH-1:0] pack_M [N-1:0];
     reg [7:0] byte_counter=0;
+
+    integer i;
 
     //-------------Code Start-----------------
 
@@ -46,20 +49,52 @@
       // If we overflow, we just submit things as they are (This may happen if we are mixing precisions)
       if (valid_in==1'b1 && tracing==1'b1 && commit==1'b1 && cond_valid==1'b1) begin
         if (total_length>N) begin 
-            vector_out<=packed_data;
+            if (cast_to_int == 1'b1) begin
+              //shift
+              for (i = 0; i < N; i++) begin
+                vector_out[i]<= (packed_data[i] >> (DATA_WIDTH/2));
+              end
+            end
+            else begin
+              vector_out<=packed_data;
+            end
             packed_data<=vector_in;
             valid_out<=1;
             packed_counter<=vector_length;
         end
         else if (total_length==N) begin 
             if (vector_length==1) begin
-              vector_out<=pack_1;
+              if (cast_to_int == 1'b1) begin
+                //shift
+                for (i = 0; i < N; i++) begin
+                  vector_out[i]<=(pack_1[i] >> (DATA_WIDTH/2));
+                end
+              end
+              else begin
+                vector_out<=pack_1;
+              end
             end
             else if (vector_length==M) begin
-              vector_out<=pack_M;
+              if (cast_to_int == 1'b1) begin
+                //shift
+                for (i = 0; i < N; i++) begin
+                  vector_out[i]<=(pack_M[i] >> (DATA_WIDTH/2));
+                end
+              end
+              else begin
+                vector_out<=pack_M;
+              end
             end
             else begin
-              vector_out<=vector_in;
+              if (cast_to_int == 1'b1) begin
+                //shift
+                for (i = 0; i < N; i++) begin
+                  vector_out[i]<=(vector_in[i] >> (DATA_WIDTH/2));
+                end
+              end
+              else begin
+                vector_out<=vector_in;
+              end
             end
             packed_data<='{default:'{DATA_WIDTH{0}}};
             packed_counter<=0;
@@ -102,10 +137,13 @@
 
     always @(*) begin
       case (firmware [chainId_in])
-        8'd0:    begin vector_length = N; commit=1; end
-        8'd1:    begin vector_length = M; commit=1; end
-        8'd2:    begin vector_length = 1; commit=1; end
-        default: begin vector_length = 0; commit=0; end
+        8'd0:    begin vector_length = N; commit=1; cast_to_int=0; end
+        8'd1:    begin vector_length = M; commit=1; cast_to_int=0; end
+        8'd2:    begin vector_length = 1; commit=1; cast_to_int=0; end
+        8'd3:    begin vector_length = N; commit=1; cast_to_int=1; end
+        8'd4:    begin vector_length = M; commit=1; cast_to_int=1; end
+        8'd5:    begin vector_length = 1; commit=1; cast_to_int=1; end
+        default: begin vector_length = 0; commit=0; cast_to_int=0; end
       endcase
 
       // Only perform operation if condition is valid

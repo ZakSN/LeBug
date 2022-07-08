@@ -567,15 +567,21 @@ class rtlHw():
             DP_INITIAL_FIRMWARE_COND = EMPTY_FIRMWARE
         else:
             
-            def encodeDpFirmware(commit,size):
+            def encodeDpFirmware(commit,cast_to_int,size):
                 if commit==0:
-                    return 3
-                elif size==1:
-                    return 2
-                elif size==self.M:
-                    return 1
-                elif size==self.N:
+                    return 6
+                elif (size==self.N) and (cast_to_int==0):
                     return 0
+                elif (size==self.M) and (cast_to_int==0):
+                    return 1
+                elif (size==1) and (cast_to_int==0):
+                    return 2
+                elif (size==self.N) and (cast_to_int==1):
+                    return 3
+                elif (size==self.M) and (cast_to_int==1):
+                    return 4
+                elif (size==1) and (cast_to_int==1):
+                    return 5
                 else:
                     assert False
             def encodeCond(cond1,cond2):
@@ -598,7 +604,7 @@ class rtlHw():
                 else:
                     return 0
             VSRU_INITIAL_FIRMWARE=str([chain.op for chain in self.firmware['vsru']]).replace("[", "'{").replace("]", "}")
-            DP_INITIAL_FIRMWARE = str([encodeDpFirmware(chain.commit,chain.size) for chain in self.firmware['dp']]).replace("[", "'{").replace("]", "}")
+            DP_INITIAL_FIRMWARE = str([encodeDpFirmware(chain.commit,chain.cast_to_int,chain.size) for chain in self.firmware['dp']]).replace("[", "'{").replace("]", "}")
             VVALU_INITIAL_FIRMWARE_OP=str([chain.op for chain in self.firmware['vvalu']]).replace("[", "'{").replace("]", "}")
             VVALU_INITIAL_FIRMWARE_ADDR_RD=str([chain.addr for chain in self.firmware['vvalu']]).replace("[", "'{").replace("]", "}")
             VVALU_INITIAL_FIRMWARE_COND=str([encodeCond(chain.cond1,chain.cond2) for chain in self.firmware['vvalu']]).replace("[", "'{").replace("]", "}")
