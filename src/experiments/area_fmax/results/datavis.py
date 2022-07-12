@@ -24,21 +24,26 @@ lebug_HEAD_data = np.array([
 ])
 
 def parse_file(to_parse):
+    def float_or_none(x):
+        if x == 'FAIL':
+            return None
+        return float(x)
     data = []
     cont = True
     with open(to_parse) as log:
         for line in log:
             line = line.split()
-            f = float(line[1])
-            a = float(line[2])
+            f = float_or_none(line[1])
+            a = float_or_none(line[2])
             nmd = line[0].split("_")
-            n = float(nmd[0])
-            m = float(nmd[1])
-            d = float(nmd[2])
+            n = float_or_none(nmd[0])
+            m = float_or_none(nmd[1])
+            d = float_or_none(nmd[2])
             data.append((n,m,d,f,a))
     return data
 
-data = parse_file("202206092133_1b5d214_summary.rpt")
+#data = parse_file("202206092133_1b5d214_summary.rpt")
+data = parse_file("202207081343_2c7529f_summary.rpt")
 by_N = []
 by_4 = []
 by_16 = []
@@ -93,6 +98,8 @@ def plot_data_2d(r, l, p, name=None, invert=False):
         else:
             return z
     fig = plt.figure(figsize=(20, 20))
+    plt.rc('axes', labelsize=15)
+    plt.rc('axes', titlesize=15)
     data = np.zeros((3, 4, 4))
     for idx, dataset in enumerate([(by_1, "M=N"), (by_4, "M=N/4"), (by_16, "M=N/16"), (by_N, "M=1")]):
         for pt in dataset[0]:
@@ -125,7 +132,7 @@ def plot_data_2d(r, l, p, name=None, invert=False):
             cmap = "Greys_r"
         ax.imshow(data[:, :, idx], cmap=cmap, vmin=min_z, vmax=max_z)
         plt.title(dataset[1])
-        plt.xlabel("N [# of vector elements]")
+        plt.xlabel("N")
         ax.set_xticks(np.arange(0, 4, 1))
         ax.set_xticklabels([16, 32, 64, 128])
         ax.set_yticks(np.arange(0, 3, 1))
@@ -133,15 +140,17 @@ def plot_data_2d(r, l, p, name=None, invert=False):
         plt.gca().invert_yaxis()
         plt.gca().invert_xaxis()
         if first:
-            plt.ylabel("DELTA_SLOTS [# of $\delta$s to compress]")
+            plt.ylabel("D")
             first = False
-    fig.suptitle(l, y=0.58)
+    # uncomment for a supertitle -- takes too much space and is reproduced in
+    # the caption
+    #fig.suptitle(l, y=0.58)
     if name is not None:
         fig.savefig(name + ".png", dpi=300, bbox_inches='tight')
     plt.show()
 
-plot_data_2d(0, "$F_{max}$ Percent Difference From Previous Work", True, name="fmax_percent_diff", invert=False)
-plot_data_2d(1, "Area Percent Difference From Previous Work", True, name="area_percent_diff", invert=True)
+plot_data_2d(0, "$F_{max}$ Percent Difference From LeBug-Head", True, name="fmax_percent_diff", invert=False)
+plot_data_2d(1, "Area Percent Difference From LeBug-Head", True, name="area_percent_diff", invert=True)
 
 plot_data_2d(0, "Frequency [MHz], for: ", False)
 plot_data_2d(1, "Area [# ALM], for: ", False)
