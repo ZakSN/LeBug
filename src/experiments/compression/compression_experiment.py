@@ -50,6 +50,7 @@ class CompressionExperiment():
             lambda i: i
         )
 
+    #XXX need raw int and raw fxp?
     def raw(self, **kwargs):
         emu = emulatedHw(**self.emu_cfg)
         fw = firm.raw(emu.compiler)
@@ -76,12 +77,31 @@ class CompressionExperiment():
         }
         return ret
 
+    # computes combined summary: 
+    # sum of all elements (incompressible, unless integers)
+    # and sparsity count (compressible)
+    # when combined the results are not compressible
     def summary(self, **kwargs):
         emu = emulatedHw(**self.emu_cfg)
         emu.fu.vrf=list(np.concatenate((
             [0.,float('inf')],
             list(reversed(range(self.emu_cfg['FUVRF_SIZE']*self.emu_cfg['M']-2))))))
         fw = firm.summaryStats(emu.compiler)
+        emu.config(fw)
+        ret = {
+            'emu_cfg' : self.emu_cfg,
+            'emu' : emu,
+            'eof1_cfg' : self.eof1_cfg,
+            'eof2_cfg' : self.eof2_cfg,
+        }
+        return ret
+
+    def sparsity_count(self, **kwargs):
+        emu = emulatedHw(**self.emu_cfg)
+        emu.fu.vrf=list(np.concatenate((
+            [0.,float('inf')],
+            list(reversed(range(self.emu_cfg['FUVRF_SIZE']*self.emu_cfg['M']-2))))))
+        fw = firm.numSparse(emu.compiler)
         emu.config(fw)
         ret = {
             'emu_cfg' : self.emu_cfg,
@@ -120,8 +140,9 @@ class CompressionExperiment():
         }
         return ret
 
-    # XXX likely configured incorrectly -- not sure if results from this
-    # firmware present reasonable compression numbers for non-activation inputs
+    # I think this is a plausible control signal configuration, however in
+    # practice the specific control signal manipulation may depend on how the
+    # tensors are flattened
     def activation_predictiveness(self, **kwargs):
         this_emu_cfg = self.emu_cfg
         this_emu_cfg['BUILDING_BLOCKS'] = [
@@ -193,9 +214,13 @@ class CompressionExperiment():
         # decompress (and decode in fxp) the trace buffer
         v_print(log['tb'][-1][0][:][:])
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+        # decoding results isn't required for calculating compression ratios, and
+        # is firmware dependant (e.g. fxp data may be used to calculate int results)
+        # thus the below is only useful for debugging
+        '''
         if emu_cfg['DATA_TYPE'] == 'fixed_point':
             decomp_tb = np.array(encodedIntTofloat(decomp_tb,emu_cfg['DATA_WIDTH']))
-
+        '''
         v_print(decomp_tb)
         v_print(decomp_tb.shape)
 
@@ -209,8 +234,7 @@ class CompressionExperiment():
 
 # reshape all frames in an input tensor to a matrix that is N elements wide,
 # padding any excess elements with 0
-# XXX by default clips to integers
-def prepare_data_frames(layer_data, N, asint=True):
+def prepare_data_frames(layer_data, N, asint=False):
     indata = []
     for frame_idx in range(layer_data.shape[0]):
         frame = layer_data[frame_idx][0]
@@ -231,7 +255,7 @@ def experiment_process(sampling_frequency, layer, ce, results_directory):
     indata = layer[1]
     results = {}
     args = {'limits':(np.min(indata), np.max(indata))}
-    for firmware in [ce.raw, ce.distribution, ce.summary, ce.spatial_sparsity, ce.norm_check, ce.activation_predictiveness]:
+    for firmware in [ce.raw, ce.distribution, ce.sparsity_count, ce.spatial_sparsity, ce.norm_check, ce.activation_predictiveness]:
         for delta_slots in [2, 4, 8, 16]:
             # configure the emulator
             ce.emu_cfg['DELTA_SLOTS'] = delta_slots
@@ -243,6 +267,7 @@ def experiment_process(sampling_frequency, layer, ce, results_directory):
             experiment['indata'] = indata
             experiment['num_frames'] = indata.shape[0]
             experiment['sampling_frequency'] = sampling_frequency
+            #experiment['verbose'] = True
 
             # get the compression ratio
             cr = CompressionExperiment.run_experiment(**experiment)
@@ -264,9 +289,13 @@ for tensor in [t for t in os.listdir(INPUT_TENSOR_DIR) if t.split('.')[1] == 'np
         tensor.split('.')[0],
         prepare_data_frames(np.load(os.path.join(INPUT_TENSOR_DIR, tensor)), 32)))
 
-# create a new experiment, and set up the emulator to process ints
+# we don't report the results for some layers we sampled, this line filters
+# out those inputs to speed up experimental runtime. comment it out to get
+# results on all layers.
+input_tensors = [tensor for tensor in input_tensors if ('input' not in tensor[0]) and ('dense' not in tensor[0])]
+
+# create a new experiment
 ce = CompressionExperiment()
-ce.emu_cfg['DATA_TYPE'] = 'int'
 
 # create a directory to store experimental results
 RESULTS_DIRECTORY = "results"

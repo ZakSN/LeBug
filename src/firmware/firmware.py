@@ -13,7 +13,7 @@ def distribution(cp,bins,M):
         cp.end_chain()
     return cp.compile()
 
-# Summary statistics - Number of non-sparse elements
+# Summary statistics - Number of sparse elements and sumAll
 def summaryStats(cp):
     # Remember to properly initialize fu.vrf
 
@@ -33,6 +33,19 @@ def summaryStats(cp):
     cp.v_cache(1)
     cp.v_reduce()
     cp.v_commit(1,'last')
+    cp.end_chain()
+    return cp.compile()
+
+# count the number of sparse elements
+def numSparse(cp):
+    # Number of sparse elements
+    cp.begin_chain()
+    cp.vv_filter(0)
+    cp.m_reduce('N')
+    cp.vv_add(1,'notfirst')
+    cp.v_cache(1)
+    cp.v_reduce()
+    cp.v_commit(1,'last',cast_to_int=True)
     cp.end_chain()
     return cp.compile()
 
@@ -221,6 +234,6 @@ def normCheck(cp,M):
         cp.m_reduce('M')
         cp.vv_add(i,'notfirst')
         cp.v_cache(i)
-        cp.v_commit(M,'last')
+        cp.v_commit(M,'last',cast_to_int=True)
         cp.end_chain()
     return cp.compile()
