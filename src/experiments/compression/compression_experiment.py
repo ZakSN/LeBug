@@ -281,50 +281,51 @@ def experiment_process(sampling_frequency, layer, ce, results_directory):
     with open(os.path.join(results_directory, results_file), 'wb') as file:
         pickle.dump(results, file)
 
-# create a list of tensors to use as experimental input
-INPUT_TENSOR_DIR = "input_tensors"
-input_tensors = []
-for tensor in [t for t in os.listdir(INPUT_TENSOR_DIR) if t.split('.')[1] == 'npy']:
-    input_tensors.append((
-        tensor.split('.')[0],
-        prepare_data_frames(np.load(os.path.join(INPUT_TENSOR_DIR, tensor)), 32)))
+for input_video in ["face", "noface"]:
+    # create a list of tensors to use as experimental input
+    INPUT_TENSOR_DIR = os.path.join("input_tensors", input_video)
+    input_tensors = []
+    for tensor in [t for t in os.listdir(INPUT_TENSOR_DIR) if t.split('.')[1] == 'npy']:
+        input_tensors.append((
+            tensor.split('.')[0],
+            prepare_data_frames(np.load(os.path.join(INPUT_TENSOR_DIR, tensor)), 32)))
 
-# we don't report the results for some layers we sampled, this line filters
-# out those inputs to speed up experimental runtime. comment it out to get
-# results on all layers.
-input_tensors = [tensor for tensor in input_tensors if ('input' not in tensor[0]) and ('dense' not in tensor[0])]
+    # we don't report the results for some layers we sampled, this line filters
+    # out those inputs to speed up experimental runtime. comment it out to get
+    # results on all layers.
+    input_tensors = [tensor for tensor in input_tensors if ('input' not in tensor[0]) and ('dense' not in tensor[0])]
 
-# create a new experiment
-ce = CompressionExperiment()
+    # create a new experiment
+    ce = CompressionExperiment()
 
-# create a directory to store experimental results
-RESULTS_DIRECTORY = "results"
-try:
-    if not os.path.exists(RESULTS_DIRECTORY):
-        os.makedirs(RESULTS_DIRECTORY)
-except OSError:
-    print('ERROR: could not make results directory')
-    exit()
+    # create a directory to store experimental results
+    RESULTS_DIRECTORY = input_video + "_" + "results"
+    try:
+        if not os.path.exists(RESULTS_DIRECTORY):
+            os.makedirs(RESULTS_DIRECTORY)
+    except OSError:
+        print('ERROR: could not make results directory')
+        exit()
 
-# run the experiment (in parallel so it hopefully goes a little faster)
-proc = []
-for sampling_frequency in [1, 2, 4, 8]:
-    for layer in input_tensors:
-        p = multiprocessing.Process(
-            target=experiment_process,
-            args=(sampling_frequency, layer, ce, RESULTS_DIRECTORY))
-        proc.append(p)
+    # run the experiment (in parallel so it hopefully goes a little faster)
+    proc = []
+    for sampling_frequency in [1, 2, 4, 8]:
+        for layer in input_tensors:
+            p = multiprocessing.Process(
+                target=experiment_process,
+                args=(sampling_frequency, layer, ce, RESULTS_DIRECTORY))
+            proc.append(p)
 
-print("Running " + str(len(proc)) + " experiments")
+    print("Running " + str(len(proc)) + " experiments")
 
-# set off all of the experiments
-for p in proc:
-    p.start()
-
-still_running = True
-while still_running:
-    still_running = False
+    # set off all of the experiments
     for p in proc:
-        p.join(timeout=1)
-        if p.is_alive():
-            still_running = True
+        p.start()
+
+    still_running = True
+    while still_running:
+        still_running = False
+        for p in proc:
+            p.join(timeout=1)
+            if p.is_alive():
+                still_running = True

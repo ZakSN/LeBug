@@ -6,7 +6,7 @@ import matplotlib.gridspec as gridspec
 import math
 
 # draw a plot
-def plot_results(layer_list, figdir):
+def plot_results(layer_list, figdir, trial):
     markers = ['>', '+', 'o', 'v', 'x', 'X', 'D', '|']
     fig = plt.figure(figsize=(12, 3))
     plt.rc('axes', labelsize=15)
@@ -43,28 +43,29 @@ def plot_results(layer_list, figdir):
     #fig.suptitle("Compression Ratio vs. DELTA_SLOTS for Layer: " + layer_name, y=0.61)
     fig.supylabel("Compression Ratio", x=0.08)
     fig.supxlabel("D", x=0.21, y=-0.09)
-    plt.savefig(os.path.join(figdir, layer_name.replace(' ', '_') + ".png"), bbox_inches='tight')
+    plt.savefig(os.path.join(figdir, trial + "_" + layer_name.replace(' ', '_') + ".png"), bbox_inches='tight')
     #plt.show()
 
-RESULTS_DIRECTORY = 'results'
-FIGURE_DIRECTORY = 'figures'
-try:
-    if not os.path.exists(FIGURE_DIRECTORY):
-        os.makedirs(FIGURE_DIRECTORY)
-except OSError:
-    print('ERROR: could not make figure directory')
-    exit()
+for input_video in ["face", "noface"]:
+    RESULTS_DIRECTORY = input_video + '_' + 'results'
+    FIGURE_DIRECTORY = 'figures'
+    try:
+        if not os.path.exists(FIGURE_DIRECTORY):
+            os.makedirs(FIGURE_DIRECTORY)
+    except OSError:
+        print('ERROR: could not make figure directory')
+        exit()
 
-result_files = os.listdir(RESULTS_DIRECTORY)
-results = {}
-for r in result_files:
-    with open(os.path.join(RESULTS_DIRECTORY, r), 'rb') as file:
-        data = pickle.load(file)
-        sampling_frequency = int(r.split('_')[0])
-        layer_name = ' '.join(r.split('.')[0].split('_')[1:])
-        if layer_name not in results:
-            results[layer_name] = []
-        results[layer_name].append((sampling_frequency, layer_name, data))
+    result_files = os.listdir(RESULTS_DIRECTORY)
+    results = {}
+    for r in result_files:
+        with open(os.path.join(RESULTS_DIRECTORY, r), 'rb') as file:
+            data = pickle.load(file)
+            sampling_frequency = int(r.split('_')[0])
+            layer_name = ' '.join(r.split('.')[0].split('_')[1:])
+            if layer_name not in results:
+                results[layer_name] = []
+            results[layer_name].append((sampling_frequency, layer_name, data))
 
-for layer_name in results:
-    plot_results(results[layer_name], FIGURE_DIRECTORY)
+    for layer_name in results:
+        plot_results(results[layer_name], FIGURE_DIRECTORY, input_video)
