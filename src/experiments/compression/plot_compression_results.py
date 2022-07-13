@@ -9,6 +9,8 @@ import math
 def plot_results(layer_list, figdir):
     markers = ['>', '+', 'o', 'v', 'x', 'X', 'D', '|']
     fig = plt.figure(figsize=(12, 3))
+    plt.rc('axes', labelsize=15)
+    plt.rc('axes', titlesize=15)
     gs = gridspec.GridSpec(1, 4)
     gs.update(wspace=0.1)
     plt.rc('xtick', labelsize=12)
@@ -30,7 +32,7 @@ def plot_results(layer_list, figdir):
         plt.title("Sampling Period: " + str(sampling_frequency))
         #plt.xlabel("DELTA_SLOTS [# $\delta$s to compress]")
         plt.grid(visible=True)
-        if not first:
+        if sampling_frequency != 1:
             ax = plt.gca()
             ax.axes.yaxis.set_ticklabels([])
         if first:
@@ -40,7 +42,7 @@ def plot_results(layer_list, figdir):
             first = False
     #fig.suptitle("Compression Ratio vs. DELTA_SLOTS for Layer: " + layer_name, y=0.61)
     fig.supylabel("Compression Ratio", x=0.08)
-    fig.supxlabel("delta slots", x=0.21, y=-0.09)
+    fig.supxlabel("D", x=0.21, y=-0.09)
     plt.savefig(os.path.join(figdir, layer_name.replace(' ', '_') + ".png"), bbox_inches='tight')
     #plt.show()
 
