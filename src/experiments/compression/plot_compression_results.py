@@ -28,12 +28,8 @@ def plot_row(axes, data, row):
             ax.axes.yaxis.set_ticklabels([])
         if row == 0:
             ax.set_title("Sampling Period: " + str(sampling_period))
-        if col == 0:
-            ax.set_ylabel("Compression Ratio")
-        if row == 2:
-            ax.set_xlabel("D")
         if row == 2 and col == 3:
-            plt.legend(title='firmware name', ncol=4, bbox_to_anchor = (0.6, -0.23), fontsize=12)
+            plt.legend(title='firmware name', ncol=4, bbox_to_anchor = (0.45, -0.23), fontsize=12)
         ax.grid(visible=True)
 
 RESULTS_DIRECTORY = 'results'
@@ -74,6 +70,7 @@ plt.rc('axes', titlesize=15)
 plt.rc('xtick', labelsize=12)
 plt.rc('ytick', labelsize=12)
 subfigs = fig.subfigures(nrows=3, ncols=1)
+plt.subplots_adjust(left=0, bottom=0)
 for layer_name in combined_results:
     def layer_name_lut(ln):
         if "6" in ln:
@@ -84,8 +81,10 @@ for layer_name in combined_results:
             return 2
     row = layer_name_lut(layer_name)
     subfig = subfigs[row]
-    #subfig.suptitle(layer_name)
+    subfig.supylabel(layer_name, x=0.90, fontsize=15)
     axes = subfig.subplots(nrows=1, ncols=4)
     plot_row(axes, combined_results[layer_name], row)
+fig.text(0.44445, -0.07, "D", ha='center', fontsize=20)
+fig.text(-0.05, 0.5, "Compression Ratio", va='center', rotation='vertical', fontsize=20)
 
 plt.savefig(os.path.join(FIGURE_DIRECTORY, "compression_results.png"), bbox_inches='tight')
