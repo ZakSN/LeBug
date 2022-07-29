@@ -13,8 +13,8 @@ one whish to reproduce our results from scratch.
 
 1. clone the TinyML repo: https://github.com/mlcommons/tiny
 2. `cd $TINYML_ROOT/benchmark/training/visual_wake_words`
-3. `cp $LEBUG_ROOT/src/experiments/compression/input_tensors/$EXAMPLE/video_96p.mp4 .`
-3. `cp $LEBUG_ROOT/src/experiments/compression/input_tensors/create_input_tensors.py .`
+3. `cp $LEBUG_ROOT/src/experiments/compression_video/input_tensors/$EXAMPLE/video_96p.mp4 .`
+3. `cp $LEBUG_ROOT/src/experiments/compression_video/input_tensors/create_input_tensors_vww.py .`
 4. `python create_input_tensors.py`
 5. the input data files should now be in the directory
    `$TINYML_ROOT/benchmark/training/visual_wake_words/input_tensors`
