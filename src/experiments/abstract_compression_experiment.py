@@ -169,3 +169,15 @@ class AbstractCompressionExperiment():
     def run_experiment(*args, **kwargs):
         raise NotImplementedError
 
+# reshape all frames in an input tensor to a matrix that is N elements wide,
+# padding any excess elements with 0
+def prepare_data_frames(layer_data, N, asint=False):
+    indata = []
+    for frame_idx in range(layer_data.shape[0]):
+        frame = layer_data[frame_idx][0]
+        frame = frame.flatten()
+        frame.resize((math.ceil(frame.shape[0]/N), N))
+        if asint:
+            frame = frame.astype(int)
+        indata.append(frame)
+    return np.array(indata)

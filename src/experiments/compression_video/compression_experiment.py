@@ -12,6 +12,7 @@ import math
 import multiprocessing
 import pickle
 from experiments.abstract_compression_experiment import AbstractCompressionExperiment
+from experiments.abstract_compression_experiment import prepare_data_frames
 
 # class to encapsulate compression experiments
 class CompressionExperiment(AbstractCompressionExperiment):
@@ -78,19 +79,6 @@ class CompressionExperiment(AbstractCompressionExperiment):
         cr = tuobj.compression_ratio(v_nodata, log['tb'][-1][0], decomp_tb)
         v_print(cr)
         return cr
-
-# reshape all frames in an input tensor to a matrix that is N elements wide,
-# padding any excess elements with 0
-def prepare_data_frames(layer_data, N, asint=False):
-    indata = []
-    for frame_idx in range(layer_data.shape[0]):
-        frame = layer_data[frame_idx][0]
-        frame = frame.flatten()
-        frame.resize((math.ceil(frame.shape[0]/N), N))
-        if asint:
-            frame = frame.astype(int)
-        indata.append(frame)
-    return np.array(indata)
 
 # create a function to encapsulate the inner experiment loops
 # this sweeps firmware and number of delta slots, and produces a pickled dictionary
