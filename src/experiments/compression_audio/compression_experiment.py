@@ -16,11 +16,12 @@ from experiments.abstract_compression_experiment import AbstractCompressionExper
 from experiments.abstract_compression_experiment import prepare_data_frames
 
 class CompressionExperiment(AbstractCompressionExperiment):
-    def run_experiment(self, data_frames, D, firmware, cfg, q):
+    def run_experiment(self, data_frames, D, firmware, experimental_cfg, q):
+        cfg = self.emu_cfg
         # configure the emulator
-        self.emu_cfg['DELTA_SLOTS'] = d
-        self.emu_cfg['PRECISION'] = int(self.emu_cfg['DATA_WIDTH']/self.emu_cfg['DELTA_SLOTS'])
-        self.emu_cfg['INV'] = twos_complement_min(self.emu_cfg['PRECISION'])
+        cfg['DELTA_SLOTS'] = D
+        cfg['PRECISION'] = int(cfg['DATA_WIDTH']/cfg['DELTA_SLOTS'])
+        cfg['INV'] = twos_complement_min(cfg['PRECISION'])
 
         exp = firmware(limits=(np.min(data_frames), np.max(data_frames)))
 
@@ -33,7 +34,7 @@ class CompressionExperiment(AbstractCompressionExperiment):
             eof2 = exp['eof2_cfg'][0]
             while vidx < frame_stop:
                 # fill the input buffer
-                for ibidx in range(self.emu_cfg['IB_DEPTH']):
+                for ibidx in range(cfg['IB_DEPTH']):
                     emu.push([f[vidx][:], eof1, eof2])
                     eof1 = exp['eof1_cfg'][2](eof1)
                     eof2 = exp['eof2_cfg'][2](eof2)
@@ -50,24 +51,25 @@ class CompressionExperiment(AbstractCompressionExperiment):
 
         # configure the decompression algorithm
         dd = DeltaDecompressor(
-            self.emu_cfg['N'],
-            self.emu_cfg['DATA_WIDTH'],
-            self.emu_cfg['DELTA_SLOTS'],
-            self.emu_cfg['TB_SIZE'])
+            cfg['N'],
+            cfg['DATA_WIDTH'],
+            cfg['DELTA_SLOTS'],
+            cfg['TB_SIZE'])
 
         # decompress (and decode in fxp) the trace buffer
         decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
 
         # compute the compression ratio
         tuobj = TestUtils()
-        nodata = n_bit_nodata(self.emu_cfg['DELTA_SLOTS'], self.emu_cfg['PRECISION'], self.emu_cfg['INV'])
-        v_nodata = np.full((1, self.emu_cfg['N']), nodata)
+        nodata = n_bit_nodata(cfg['DELTA_SLOTS'], cfg['PRECISION'], cfg['INV'])
+        v_nodata = np.full((1, cfg['N']), nodata)
         cr = tuobj.compression_ratio(v_nodata, log['tb'][-1][0], decomp_tb)
-        q.put((*cfg, cr))
-        #return (*cfg, cr)
+        q.put((*experimental_cfg, cr))
+        # debug print
+        #print((*experimental_cfg, cr), cfg['DELTA_SLOTS'])
 
 INPUT_TENSOR_DIR = os.path.join('input_tensors', 'tfds_speech_commands_10clip_stream')
-RESULTS_FILE = 'compression_audio_results.txt'
+RESULTS_FILE = 'compression_audio_results.csv'
 # use sets so that we don't get multiple instances of each value
 layers = set()
 strides = set()
@@ -113,20 +115,25 @@ for l in layers:
                     proc.append(p)
 
 # run the experiments
-print("Running "+str(len(proc))+" experiments")
-
-for p in proc:
-    p.start()
-
+total = len(proc)
+finished = 0
 still_running = True
-while still_running:
+running = []
+while (len(proc) > 0) and (still_running == True):
     still_running = False
-    for p in proc:
+    while (len(running) < multiprocessing.cpu_count() - 1) and (len(proc) > 0):
+        running.append(proc.pop())
+        running[-1].start()
+    for p in running:
         p.join(timeout=1)
         if p.is_alive():
             still_running = True
+        if not p.is_alive():
+            running.remove(p)
+            finished = finished + 1
+            print("Finished "+str(finished)+" of "+str(total)+" experiements.")
 
 # when the experiments are finished dump the results queue to a file
 with open(RESULTS_FILE, 'w') as file:
     while not q.empty():
-        file.write(', '.join(map(str, q.get())) + '\n')
+        file.write(','.join(map(str, q.get())) + '\n')
