@@ -14,6 +14,7 @@ from multiprocessing import Queue
 import pickle
 from experiments.abstract_compression_experiment import AbstractCompressionExperiment
 from experiments.abstract_compression_experiment import prepare_data_frames
+import csv
 
 class CompressionExperiment(AbstractCompressionExperiment):
     def run_experiment(self, data_frames, D, firmware, experimental_cfg, q):
@@ -101,39 +102,47 @@ layers = [l for l in layers if ('dense' not in l) and ('input' not in l)]
 proc = []
 q = Queue()
 
+all_ready_done = []
+
+try:
+    with open(RESULTS_FILE, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+            all_ready_done.append(tuple(row[0:-1]))
+except FileNotFoundError:
+    pass
+
 # setup all of our experiments
 for l in layers:
     for s in strides:
         for c in clip_lengths:
             for d in delta_slots:
                 for f in firmwares:
-                    path = l+"_"+s+"_"+c+".npy"
-                    df = prepare_data_frames(np.load(os.path.join(INPUT_TENSOR_DIR, path)), N)
-                    p = multiprocessing.Process(
-                        target=ce.run_experiment,
-                        args=(df, d, f, (l, s, c, d, f.__name__), q))
-                    proc.append(p)
+                    if (str(l), str(s), str(c), str(d), str(f.__name__)) not in all_ready_done:
+                        path = l+"_"+s+"_"+c+".npy"
+                        df = prepare_data_frames(np.load(os.path.join(INPUT_TENSOR_DIR, path)), N)
+                        p = multiprocessing.Process(
+                            target=ce.run_experiment,
+                            args=(df, d, f, (l, s, c, d, f.__name__), q))
+                        proc.append(p)
 
-# run the experiments
 total = len(proc)
+print("Running "+str(total)+" Experiments")
+# run the experiments
 finished = 0
-still_running = True
 running = []
-while (len(proc) > 0) and (still_running == True):
-    still_running = False
+while (len(proc) > 0) or (finished < total):
     while (len(running) < multiprocessing.cpu_count() - 1) and (len(proc) > 0):
         running.append(proc.pop())
         running[-1].start()
     for p in running:
         p.join(timeout=1)
-        if p.is_alive():
-            still_running = True
         if not p.is_alive():
             running.remove(p)
             finished = finished + 1
             print("Finished "+str(finished)+" of "+str(total)+" experiements.")
 
 # when the experiments are finished dump the results queue to a file
-with open(RESULTS_FILE, 'w') as file:
+with open(RESULTS_FILE, 'a') as file:
     while not q.empty():
         file.write(','.join(map(str, q.get())) + '\n')
