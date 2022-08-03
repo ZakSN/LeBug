@@ -32,7 +32,7 @@ def plot_row(axes, data, row):
         if row != 2:
             ax.axes.xaxis.set_ticklabels([])
         if row == 2 and col == 3:
-            plt.legend(title='firmware name', ncol=4, bbox_to_anchor = (0.45, -0.23), fontsize=12)
+            ax.legend(title='firmware name', ncol=4, bbox_to_anchor = (0.45, -0.23), fontsize=12)
         ax.grid(visible=True)
 
 def parse_results(file):
@@ -67,6 +67,7 @@ plt.rc('axes', titlesize=15)
 plt.rc('xtick', labelsize=12)
 plt.rc('ytick', labelsize=12)
 subfigs = fig.subfigures(nrows=3, ncols=1)
+plt.subplots_adjust(left=0, bottom=0)
 for layer in data:
     def layer_lut(k):
         if 'conv' in k:
@@ -76,8 +77,8 @@ for layer in data:
         if 'batch' in k:
             return 2
     row = layer_lut(layer)
-    axes = subfigs[row].subplots(nrows=1, ncols=4)
     subfigs[row].supylabel(layer.replace('_', ' '), x=0.91, fontsize=15)
+    axes = subfigs[row].subplots(nrows=1, ncols=4)
     plot_row(axes, data[layer], row)
 fig.text(0.44445, -0.07, "D", ha='center', fontsize=20)
 fig.text(-0.05, 0.5, "Compression Ratio", va='center', rotation='vertical', fontsize=20)
