@@ -149,7 +149,7 @@ if __name__ == '__main__':
         # provided stride and window, and return the resulting data packaged as a
         # tensorflow dataset
         stream, labels = build_stream(10, os.path.join(Flags.data_dir, 'speech_commands', '0.0.2'), seed=1)
-        resampled = resample_stream(stream, 800, clip_length)
+        resampled = resample_stream(stream, stride, clip_length)
         ds = create_dataset(resampled, workdir)
 
         # configure and run the audio preprocessing steps on the dataset created above
