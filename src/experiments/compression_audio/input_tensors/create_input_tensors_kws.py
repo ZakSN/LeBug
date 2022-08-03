@@ -148,7 +148,7 @@ if __name__ == '__main__':
         # merge multiple audio clips into a single stream, resample it with the
         # provided stride and window, and return the resulting data packaged as a
         # tensorflow dataset
-        stream, labels = build_stream(10, os.path.join(Flags.data_dir, 'speech_commands', '0.0.2'), seed=1)
+        stream, labels = build_stream(100, os.path.join(Flags.data_dir, 'speech_commands', '0.0.2'), seed=1)
         resampled = resample_stream(stream, stride, clip_length)
         ds = create_dataset(resampled, workdir)
 
