@@ -31,6 +31,7 @@ class CompressionExperiment(AbstractCompressionExperiment):
             frame_stop = f.shape[0]-1
             vidx = 0
             emu = exp['emu']
+            emu.dc.measure_entropy = True
             eof1 = exp['eof1_cfg'][0]
             eof2 = exp['eof2_cfg'][0]
             while vidx < frame_stop:
@@ -65,7 +66,12 @@ class CompressionExperiment(AbstractCompressionExperiment):
         nodata = n_bit_nodata(cfg['DELTA_SLOTS'], cfg['PRECISION'], cfg['INV'])
         v_nodata = np.full((1, cfg['N']), nodata)
         cr = tuobj.compression_ratio(v_nodata, log['tb'][-1][0], decomp_tb)
-        q.put((*experimental_cfg, cr))
+
+        # compute input/output bit 1 probabability for entropy measurement
+        pi = emu.dc.bi/emu.dc.ti
+        po = emu.dc.bo/emu.dc.to
+
+        q.put((*experimental_cfg, cr, pi, po))
         # debug print
         #print((*experimental_cfg, cr), cfg['DELTA_SLOTS'])
 
@@ -108,7 +114,7 @@ try:
     with open(RESULTS_FILE, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         for row in reader:
-            all_ready_done.append(tuple(row[0:-1]))
+            all_ready_done.append(tuple(row[0:-3]))
 except FileNotFoundError:
     pass
 
