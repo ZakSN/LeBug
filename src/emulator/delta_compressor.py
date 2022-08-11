@@ -31,22 +31,21 @@ class DeltaCompressor():
         self.ti = 0 # total number of input bits
         self.bo = 0 # number of output bits that are 1
         self.to = 0 # total number of output bits
+        self.pop_mask = ((2**self.DATA_WIDTH)-1)
+
+    def pop_count(self, v):
+        # pop_count algo from: https://stackoverflow.com/a/843846
+        # adjusted to mask to bitwidth, to handle -ve 2's c numbers
+        def pc(n):
+            c = 0
+            while n & self.pop_mask:
+                c +=1
+                n &= n - 1
+            return c
+        vpc = np.vectorize(pc)
+        return vpc(v).sum()
 
     def step(self, packed_data):
-        # count the number of ones in a vector for entropy measurement
-        pop_mask = ((2**self.DATA_WIDTH)-1)
-        def pop_count(v):
-            # pop_count algo from: https://stackoverflow.com/a/843846
-            # adjusted to mask to bitwidth, to handle -ve 2's c numbers
-            def pc(n):
-                c = 0
-                while n & pop_mask:
-                    c +=1
-                    n &= n - 1
-                return c
-            vpc = np.vectorize(pc)
-            return vpc(v).sum()
-
         v_in, v_in_valid = packed_data
 
         # vector ouput signals
@@ -61,7 +60,7 @@ class DeltaCompressor():
 
         if self.measure_entropy:
             self.ti = self.ti + self.N*self.DATA_WIDTH
-            self.bi = self.bi + pop_count(v_in)
+            self.bi = self.bi + self.pop_count(v_in)
 
         assert_vector_size(v_in, self.N, self.DATA_MIN, self.DATA_MAX)
 
@@ -128,7 +127,7 @@ class DeltaCompressor():
 
         if v_out_valid and self.measure_entropy:
             self.to = self.to + self.N*self.DATA_WIDTH
-            self.bo = self.bo + pop_count(v_out)
+            self.bo = self.bo + self.pop_count(v_out)
 
         self.last_reg = v_in # store this input for one cycle
         return v_out_valid, v_out_comp, v_out, inc_tb_ptr

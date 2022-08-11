@@ -3,16 +3,18 @@ import os
 import sys
 sys.path.insert(1, '../../../src')
 from emulator.emulator import emulatedHw
+from software.delta_decompressor import DeltaDecompressor
 import firmware.firmware as firm
 sys.path.insert(1, '../../../examples')
 from test_utils import TestUtils
 from misc.misc import *
 import math
 import multiprocessing
-import pickle
+from multiprocessing import Queue
+import csv
 
 # class to encapsulate compression experiments
-class AbstractCompressionExperiment():
+class CompressionExperiment():
     def __init__(self):
         # default emulated hardware configuration
         self.emu_cfg = {
@@ -166,8 +168,61 @@ class AbstractCompressionExperiment():
         return ret
 
     # missing total invalidity
-    def run_experiment(*args, **kwargs):
-        raise NotImplementedError
+    def run_experiment(self, istream, D, firmware, experimental_cfg, q):
+        # configure the emulator
+        self.emu_cfg['DELTA_SLOTS'] = D
+        self.emu_cfg['PRECISION'] = int(self.emu_cfg['DATA_WIDTH']/self.emu_cfg['DELTA_SLOTS'])
+        self.emu_cfg['INV'] = twos_complement_min(self.emu_cfg['PRECISION'])
+
+        exp = firmware(self, limits=(np.min(istream), np.max(istream)))
+        emu = exp['emu']
+        emu.dc.measure_entropy = True
+
+        for f in istream: # for each frame in the input tensor stream
+            # feed the vectors into the emulator
+            frame_stop = f.shape[0]-1
+            vidx = 0
+            eof1 = exp['eof1_cfg'][0]
+            eof2 = exp['eof2_cfg'][0]
+            while vidx < frame_stop:
+                # fill the input buffer
+                for ibidx in range(self.emu_cfg['IB_DEPTH']):
+                    emu.push([f[vidx][:], eof1, eof2])
+                    eof1 = exp['eof1_cfg'][2](eof1)
+                    eof2 = exp['eof2_cfg'][2](eof2)
+                    vidx = vidx + 1
+                    if vidx >= frame_stop:
+                        break
+                # drain the input buffer
+                while len(emu.ib.buffer) > 0:
+                    s = len(emu.ib.buffer)
+                    emu.run(steps = s)
+            # last vector is special
+            emu.push([f[-1][:], exp['eof1_cfg'][1], exp['eof2_cfg'][1]])
+            log = emu.run(steps = 10)
+
+        # configure the decompression algorithm
+        dd = DeltaDecompressor(
+            self.emu_cfg['N'],
+            self.emu_cfg['DATA_WIDTH'],
+            self.emu_cfg['DELTA_SLOTS'],
+            self.emu_cfg['TB_SIZE'])
+
+        # decompress (and decode in fxp) the trace buffer
+        decomp_tb = dd.decompress(log['dc'][-1][1], log['tb'][-1][0], log['tb'][-1][1], log['tb'][-1][2])
+
+        # compute the compression ratio
+        tuobj = TestUtils()
+        nodata = n_bit_nodata(self.emu_cfg['DELTA_SLOTS'], self.emu_cfg['PRECISION'], self.emu_cfg['INV'])
+        v_nodata = np.full((1, self.emu_cfg['N']), nodata)
+        cr = tuobj.compression_ratio(v_nodata, log['tb'][-1][0], decomp_tb)
+
+        # compute input/output bit 1 probabability for entropy measurement
+        # for the output we also need to consider any bits left in the last_reg
+        pi = emu.dc.bi/emu.dc.ti
+        po = (emu.dc.bo + emu.dc.pop_count(emu.dc.last_reg))/(emu.dc.to + (emu.N*emu.DATA_WIDTH))
+
+        q.put((*experimental_cfg, cr, pi, po))
 
 # reshape all frames in an input tensor to a matrix that is N elements wide,
 # padding any excess elements with 0
@@ -181,3 +236,50 @@ def prepare_data_frames(layer_data, N, asint=False):
             frame = frame.astype(int)
         indata.append(frame)
     return np.array(indata)
+
+# get all of the all ready completed configurations from the results file
+def get_all_ready_done(RESULTS_FILE, num_results=3):
+    all_ready_done = []
+    try:
+        with open(RESULTS_FILE, newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',')
+            for row in reader:
+                all_ready_done.append(tuple(row[0:-1*num_results]))
+    except FileNotFoundError:
+        pass
+    return all_ready_done
+
+# run all of the experiements
+# we run cpu_count() - 1 threads in parallel, since there's a lot of experiements
+def multi_run(proc, RESULTS_FILE, q):
+    proc = [multiprocessing.Process(target=p[0], args=p[1]) for p in proc]
+    total = len(proc)
+    print("Running "+str(total)+" Experiments")
+
+    finished = 0
+    running = []
+    while (len(proc) > 0) or (finished < total):
+        # if less than the maximum number of threads are running, start some more
+        while (len(running) < multiprocessing.cpu_count() - 1) and (len(proc) > 0):
+            running.append(proc.pop())
+            running[-1].start()
+
+        # try to join any threads that are finished
+        for p in running:
+            p.join(timeout=1)
+            if not p.is_alive():
+                running.remove(p)
+                finished = finished + 1
+                print("Finished "+str(finished)+" of "+str(total)+" experiments")
+        
+        # periodically empty some results from the queue incase we crash mid run
+        if q.qsize() >= int(total/10):
+            with open(RESULTS_FILE, 'a') as file:
+                for _ in range(int(total/10)):
+                    if not q.empty():
+                        file.write(','.join(map(str, q.get())) + '\n')
+
+    # dump anything that was left in the queue
+    with open(RESULTS_FILE, 'a') as file:
+        while not q.empty():
+            file.write(','.join(map(str, q.get())) + '\n')
