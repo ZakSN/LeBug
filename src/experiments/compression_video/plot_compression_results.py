@@ -1,90 +1,61 @@
-import os
-import pickle
-import numpy as np
+import sys
+sys.path.insert(1, '../')
+from plot_results import *
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import math
 
-# draw a plot
-def plot_row(axes, data, row):
-    markers = ['>', '+', 'o', 'v', 'x', 'X', 'D', '|']
-    colours = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown']
-    for trial in data:
-        sampling_period = trial[0]
-        layer_name = trial[1]
-        results = trial[2]
-        col = int(math.log(sampling_period, 2))
-        ax = axes[col]
-        for idx, fw in enumerate(results[0]):
-            ax.plot(*list(zip(*(results[0][fw]))), label=fw.replace('_', ' '), marker=markers[idx%8], color=colours[idx%6])
-            ax.plot(*list(zip(*(results[1][fw]))), marker=markers[idx%8], linestyle='dotted', color=colours[idx%6])
-        ax.plot((2, 4, 8, 16), (2*(64/65), 4*(64/65), 8*(64/65), 16*(64/65)), linestyle='dotted', color='black', label="Ideal")
-        ax.set_aspect(0.66)
-        ax.set_xscale('log', base=2)
-        ax.set_yscale('log', base=2)
-        ax.set_xlim(2, 8)
-        ax.set_ylim(0.9, 8)
-        if col != 0:
-            ax.axes.yaxis.set_ticklabels([])
-        if row == 0:
-            ax.set_title("Sampling Period: " + str(sampling_period))
-        if row == 2 and col == 3:
-            plt.legend(title='firmware name', ncol=4, bbox_to_anchor = (0.45, -0.23), fontsize=12)
-        ax.grid(visible=True)
+RESULTS_FILE="video_compression_results.csv"
+raw = read_results_file(RESULTS_FILE)
+subfigs = create_figure(False)
 
-RESULTS_DIRECTORY = 'results'
-FIGURE_DIRECTORY = 'figures'
-try:
-    if not os.path.exists(FIGURE_DIRECTORY):
-        os.makedirs(FIGURE_DIRECTORY)
-except OSError:
-    print('ERROR: could not make figure directory')
-    exit()
+# index order: video input, layer, sampling period, firmware
+# at each index is a list of tuples of the form (D, compression_ratio)
+data = {}
+for l in raw:
+    if l[0] not in data: # input
+        data[l[0]] = {}
+    if l[1] not in data[l[0]]: # layer
+        data[l[0]][l[1]] = {}
+    if l[2] not in data[l[0]][l[1]]:
+        data[l[0]][l[1]][l[2]] = {}
+    if l[4] not in data[l[0]][l[1]][l[2]]:
+        data[l[0]][l[1]][l[2]][l[4]] = []
+    data[l[0]][l[1]][l[2]][l[4]].append((float(l[3]), float(l[5])))
 
-def parse_results(rdir):
-    result_files = os.listdir(rdir)
-    results = {}
-    for r in result_files:
-        with open(os.path.join(rdir, r), 'rb') as file:
-            data = pickle.load(file)
-        sampling_frequency = int(r.split('_')[0])
-        layer_name = ' '.join(r.split('.')[0].split('_')[1:])
-        if layer_name not in results:
-            results[layer_name] = []
-        results[layer_name].append((sampling_frequency, layer_name, data))
-    return results
-
-results1 = parse_results("face_" + RESULTS_DIRECTORY)
-results2 = parse_results("noface_" + RESULTS_DIRECTORY)
-
-combined_results = {}
-
-for key in results1:
-    combined_results[key] = []
-    for idx, item in enumerate(results1[key]):
-        combined_results[key].append((item[0], item[1], (item[2], results2[key][idx][2])))
-
-fig = plt.figure(figsize=(12, 8))
-plt.rc('axes', labelsize=15)
-plt.rc('axes', titlesize=15)
-plt.rc('xtick', labelsize=12)
-plt.rc('ytick', labelsize=12)
-subfigs = fig.subfigures(nrows=3, ncols=1)
-plt.subplots_adjust(left=0, bottom=0)
-for layer_name in combined_results:
-    def layer_name_lut(ln):
-        if "6" in ln:
+def get_ax(sf, l, s):
+    def row_lut(k):
+        if '6' in k:
             return 0
-        if "13" in ln:
+        if '13' in k:
             return 1
-        if "20" in ln:
+        if '20' in k:
             return 2
-    row = layer_name_lut(layer_name)
-    subfig = subfigs[row]
-    subfig.supylabel(layer_name, x=0.90, fontsize=15)
-    axes = subfig.subplots(nrows=1, ncols=4)
-    plot_row(axes, combined_results[layer_name], row)
-fig.text(0.44445, -0.07, "D", ha='center', fontsize=20)
-fig.text(-0.05, 0.5, "Compression Ratio", va='center', rotation='vertical', fontsize=20)
+    def column_lut(k):
+        if '1' in s:
+            return 0
+        if '2' in s:
+            return 1
+        if '4' in s:
+            return 2
+        if '8' in s:
+            return 3
+    return sf[row_lut(l)][column_lut(s)]
 
-plt.savefig(os.path.join(FIGURE_DIRECTORY, "compression_results.png"), bbox_inches='tight')
+for v in data.keys():
+    for l in data[v].keys():
+        for s in data[v][l].keys():
+            rng = data[v][l][s]
+            if 'no' in v:
+                style='dotted'
+            else:
+                style='solid'
+            ax = get_ax(subfigs, l, s)
+            plot_range(
+                ax,
+                rng,
+                False,
+                range_id=' ' + v,
+                range_style=style)
+
+plt.legend(title='firmware name', ncol=4, bbox_to_anchor = (1, -0.23), fontsize=12)
+plt.savefig('video_compression_plot.png', bbox_inches='tight')
+
