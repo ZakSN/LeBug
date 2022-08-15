@@ -1,85 +1,62 @@
+import sys
+sys.path.insert(1, '../')
+from plot_results import *
 import matplotlib.pyplot as plt
-import numpy as np
-import csv
 
-def plot_row(axes, data, row):
-    rng_cfg = {
-        'raw' : ('tab:blue','>'),
-        'distribution' : ('tab:orange','+'),
-        'sparsity_count' : ('tab:green','o'),
-        'spatial_sparsity' : ('tab:red','v'),
-        'norm_check' : ('tab:purple','X'),
-        'activation_predictiveness' : ('tab:brown','x'),
-    }
-    for stride_ratio in data:
-        l = list(data.keys())
-        l.sort()
-        col = l.index(stride_ratio)
-        ax = axes[col]
-        ranges = data[stride_ratio]
-        for fw in ranges.keys():
-            ax.plot(*list(zip(*ranges[fw])), label=fw.replace('_', ' '), marker=rng_cfg[fw][1], color=rng_cfg[fw][0])
-        ax.plot((2, 4, 8, 16), (2*(64/65), 4*(64/65), 8*(64/65), 16*(64/65)), linestyle='dotted', color='black', label="Ideal")
-        ax.set_aspect(0.66)
-        ax.set_xscale('log', base=2)
-        ax.set_yscale('log', base=2)
-        ax.set_xlim(2, 8)
-        ax.set_ylim(0.9, 8)
-        if col != 0:
-            ax.axes.yaxis.set_ticklabels([])
-        if row == 0:
-            ax.set_title("Stride: "+str(stride_ratio))
-        if row != 2:
-            ax.axes.xaxis.set_ticklabels([])
-        if row == 2 and col == 3:
-            ax.legend(title='firmware name', ncol=4, bbox_to_anchor = (0.45, -0.23), fontsize=12)
-        ax.grid(visible=True)
+RESULTS_FILE="audio_compression_results.csv"
+raw = read_results_file(RESULTS_FILE)
 
-def parse_results(file):
-    raw = []
-    with open(file, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-        for row in reader:
-            raw.append(row)
+def parse_raw(raw):
     parsed = []
-    for row in raw:
-        parsed.append((row[0], float(row[1])/float(row[2]), row[4], float(row[3]), float(row[5])))
+    for l in raw:
+        parsed.append((l[0], float(l[1])/float(l[2]), l[3], l[4], l[5], l[6], l[7]))
     return parsed
 
+parsed = parse_raw(raw)
 
-parsed = parse_results('compression_audio_results.csv')
-layer_set = set()
-stride_ratio_set = set()
+# index order: layer, stride, firmware
+# at each index is a list of tuples of the form (D, compression_ratio)
 data = {}
-for p in parsed:
-    if p[0] not in data:
-        data[p[0]] = {}
-    if p[1] not in data[p[0]]:
-        data[p[0]][p[1]] = {}
-    if p[2] not in data[p[0]][p[1]]:
-        data[p[0]][p[1]][p[2]] = [(p[3], p[4])]
-    else:
-        data[p[0]][p[1]][p[2]].append((p[3], p[4]))
+for l in parsed:
+    if l[0] not in data:
+        data[l[0]] = {}
+    if l[1] not in data[l[0]]:
+        data[l[0]][l[1]] = {}
+    if l[3] not in data[l[0]][l[1]]:
+        data[l[0]][l[1]][l[3]] = []
+    data[l[0]][l[1]][l[3]].append((float(l[2]), float(l[4])))
 
-fig = plt.figure(figsize=(12, 8))
-plt.rc('axes', labelsize=15)
-plt.rc('axes', titlesize=15)
-plt.rc('xtick', labelsize=12)
-plt.rc('ytick', labelsize=12)
-subfigs = fig.subfigures(nrows=3, ncols=1)
-plt.subplots_adjust(left=0, bottom=0)
-for layer in data:
-    def layer_lut(k):
+subfigs = create_figure(False, ['conv2d 1','activation 4','batch normalization 7'],
+                              ['Stride: 0.25','Stride: 0.5','Stride: 0.75','Stride: 1.0'])
+
+def get_ax(sf, l, s):
+    def row_lut(k):
         if 'conv' in k:
             return 0
-        if 'act' in k:
+        if 'activation' in k:
             return 1
         if 'batch' in k:
             return 2
-    row = layer_lut(layer)
-    subfigs[row].supylabel(layer.replace('_', ' '), x=0.91, fontsize=15)
-    axes = subfigs[row].subplots(nrows=1, ncols=4)
-    plot_row(axes, data[layer], row)
-fig.text(0.44445, -0.07, "D", ha='center', fontsize=20)
-fig.text(-0.05, 0.5, "Compression Ratio", va='center', rotation='vertical', fontsize=20)
-plt.savefig('compression_results.png', bbox_inches='tight')
+    def column_lut(k):
+        if 0.25 == s:
+            return 0
+        if 0.50 == s:
+            return 1
+        if 0.75 == s:
+            return 2
+        if 1.00 == s:
+            return 3
+    return sf[row_lut(l)][column_lut(s)]
+
+for l in data.keys():
+    for s in data[l].keys():
+        rng = data[l][s]
+        rng['ideal'] = [(2,2*(64/65)), (4,4*(64/65)), (8,8*(64/65)), (16,16*(64/65))]
+        ax = get_ax(subfigs, l, s)
+        plot_range(
+            ax,
+            rng,
+            False)
+
+plt.legend(title='firmware name', ncol=4, bbox_to_anchor = (0.5, -0.23), fontsize=12)
+plt.savefig('audio_compression_plot.png', bbox_inches='tight')

@@ -35,7 +35,9 @@ for l in raw:
     data[l[0]][encoder_out][l[1]][l[2]][l[4]].append((float(l[3]), entropy(float(l[7]))))
 
 for v in data.keys():
-    subfigs = create_figure(True)
+    subfigs = create_figure(True,
+                            ['activation 6', 'activation 13', 'activation 20'],
+                            ['Sampling Period: 1', 'Sampling Period 2', 'Sampling Period: 4', 'Sampling Period: 8'])
     for p in data[v].keys():
         for l in data[v][p].keys():
             for s in data[v][p][l].keys():

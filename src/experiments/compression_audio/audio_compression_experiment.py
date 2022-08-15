@@ -16,7 +16,7 @@ from experiments.compression_experiment import multi_run
 from experiments.compression_experiment import get_all_ready_done
 
 INPUT_TENSOR_DIR = os.path.join('input_tensors', 'tfds_speech_commands_10clip_stream')
-RESULTS_FILE = 'compression_audio_results.csv'
+RESULTS_FILE = 'audio_compression_results.csv'
 
 # use sets so that we don't get multiple instances of each value
 layers = set()
