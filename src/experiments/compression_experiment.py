@@ -12,6 +12,7 @@ import math
 import multiprocessing
 from multiprocessing import Queue
 import csv
+import zlib
 
 # class to encapsulate compression experiments
 class CompressionExperiment():
@@ -167,6 +168,23 @@ class CompressionExperiment():
         }
         return ret
 
+    # use zlib to compress a trace of the delta compressor's input and compute
+    # the cr achieved by zlib, level sets how hard zlib tries, 0=min, 9=max
+    # extremely slow!
+    def calc_zlib_cr(self, dp_log, level=9):
+        stream = None
+        for i in range(len(dp_log)):
+            if dp_log[i][1] == 1:
+                if stream is None:
+                    stream = dp_log[i][0]
+                else:
+                    stream = np.vstack((stream, dp_log[i][0]))
+        stream = stream.tobytes()
+        ucl = len(stream)
+        stream = zlib.compress(stream, level=9)
+        cl = len(stream)
+        return ucl/cl
+
     # missing total invalidity
     def run_experiment(self, istream, D, firmware, experimental_cfg, q):
         # configure the emulator
@@ -222,7 +240,9 @@ class CompressionExperiment():
         pi = emu.dc.bi/emu.dc.ti
         po = (emu.dc.bo + emu.dc.pop_count(emu.dc.last_reg))/(emu.dc.to + (emu.N*emu.DATA_WIDTH))
 
-        q.put((*experimental_cfg, cr, pi, po))
+        zcr = self.calc_zlib_cr(log['dp'][:])
+
+        q.put((*experimental_cfg, cr, pi, po, zcr))
 
 # reshape all frames in an input tensor to a matrix that is N elements wide,
 # padding any excess elements with 0
