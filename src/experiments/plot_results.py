@@ -5,7 +5,7 @@ import math
 
 # inputs: axis to plot range on, dictionary of lists of x,y tuples with firmware
 # names as keys
-def plot_range(ax, to_plot, entropy_plot, range_id='', range_style='solid'):
+def plot_range(ax, to_plot, entropy_plot, range_id='', range_style='solid', limit_y=True):
     rng_cfg = {
         'raw' : ('tab:blue','>'),
         'distribution' : ('tab:orange','+'),
@@ -30,7 +30,8 @@ def plot_range(ax, to_plot, entropy_plot, range_id='', range_style='solid'):
         if not entropy_plot:
             ax.set_aspect(0.66)
             ax.set_yscale('log', base=2)
-            ax.set_ylim(0.9, 8)
+            if limit_y:
+                ax.set_ylim(0.9, 8)
         else:
             ax.set_ylim(0, 1)
         ax.grid(visible=True)
