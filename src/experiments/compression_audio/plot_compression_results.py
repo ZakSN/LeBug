@@ -26,7 +26,7 @@ for l in parsed:
         data[l[0]][l[1]][l[3]] = []
     data[l[0]][l[1]][l[3]].append((float(l[2]), float(l[4])))
 
-subfigs = create_figure(False, ['conv2d 1','activation 4','batch normalization 7'],
+subfigs, fig = create_figure(False, ['conv2d 1','activation 4','batch normalization 7'],
                               ['Stride: 0.25','Stride: 0.5','Stride: 0.75','Stride: 1.0'])
 
 def get_ax(sf, l, s):
@@ -38,16 +38,17 @@ def get_ax(sf, l, s):
         if 'batch' in k:
             return 2
     def column_lut(k):
-        if 0.25 == s:
+        if 0.25 == k:
             return 0
-        if 0.50 == s:
+        if 0.50 == k:
             return 1
-        if 0.75 == s:
+        if 0.75 == k:
             return 2
-        if 1.00 == s:
+        if 1.00 == k:
             return 3
     return sf[row_lut(l)][column_lut(s)]
 
+first = True
 for l in data.keys():
     for s in data[l].keys():
         rng = data[l][s]
@@ -57,6 +58,8 @@ for l in data.keys():
             ax,
             rng,
             False)
+        if first:
+            add_legend(fig)
+            first = False
 
-plt.legend(title='firmware name', ncol=4, bbox_to_anchor = (0.5, -0.23), fontsize=12)
 plt.savefig('audio_compression_plot.png', bbox_inches='tight')

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 RESULTS_FILE="video_compression_results.csv"
 raw = read_results_file(RESULTS_FILE)
-subfigs = create_figure(False,
+subfigs, fig = create_figure(False,
                         ['activation 6', 'activation 13', 'activation 20'],
                         ['Sampling Period: 1', 'Sampling Period 2', 'Sampling Period: 4', 'Sampling Period: 8'])
 
@@ -42,6 +42,7 @@ def get_ax(sf, l, s):
             return 3
     return sf[row_lut(l)][column_lut(s)]
 
+first = True
 for v in data.keys():
     for l in data[v].keys():
         for s in data[v][l].keys():
@@ -58,7 +59,9 @@ for v in data.keys():
                 False,
                 range_id=' ' + v,
                 range_style=style)
+            if first:
+                add_legend(fig)
+                first = False
 
-plt.legend(title='firmware name', ncol=4, bbox_to_anchor = (1.2, -0.23), fontsize=12)
 plt.savefig('video_compression_plot.png', bbox_inches='tight')
 
