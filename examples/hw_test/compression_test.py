@@ -75,14 +75,16 @@ class TestCompressionHW(unittest.TestCase, TestUtils):
          self.assertTrue(self.check_frame_equality(frame_in, hw_results_decompressed))
 
          # ensure that compressed data took less space than the decompressed data
+         # (accounting for extra CF flag bits in the worst case)
          # we've converted all of the numbers from the tb to signed values, including
          # the nodata symbol (which is properly a bit vector and not a number...)
          # so we need to do some extra math here
          unsigned_nodata = n_bit_nodata(DELTA_SLOTS, PRECISION, INV)
          signed_nodata = unsigned_nodata - 2**(DATA_WIDTH)
          v_nodata = np.full((1, N), signed_nodata)
-         cr = self.compression_ratio(v_nodata, hw_results_compressed[1], hw_results_decompressed)
-         self.assertTrue(cr >= 1)
+         cr = self.compression_ratio(v_nodata, hw_results_compressed[1], hw_results_decompressed, N*DATA_WIDTH)
+         wccr = self.worst_case_cr(v_nodata, hw_results_compressed[1], N*DATA_WIDTH)
+         self.assertTrue(cr >= wccr)
 
          # ensure that the compression ratio does not exceed the theoretical max
          self.assertTrue(cr <= DELTA_SLOTS)

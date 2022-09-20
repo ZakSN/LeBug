@@ -215,7 +215,8 @@ class CompressionExperiment():
         tuobj = TestUtils()
         nodata = n_bit_nodata(self.emu_cfg['DELTA_SLOTS'], self.emu_cfg['PRECISION'], self.emu_cfg['INV'])
         v_nodata = np.full((1, self.emu_cfg['N']), nodata)
-        cr = tuobj.compression_ratio(v_nodata, log['tb'][-1][0], decomp_tb)
+        bpv = self.emu_cfg['N']*self.emu_cfg['DATA_WIDTH']
+        cr = tuobj.compression_ratio(v_nodata, log['tb'][-1][0], decomp_tb, bpv)
 
         # compute input/output bit 1 probabability for entropy measurement
         # for the output we also need to consider any bits left in the last_reg

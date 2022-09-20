@@ -43,12 +43,13 @@ class TestCompressionEmu(unittest.TestCase, TestUtils):
         self.assertTrue(self.check_frame_equality(frame_in, frame_out))
 
         v_nodata = np.full((1, N), n_bit_nodata(DELTA_SLOTS, PRECISION, INV))
-        cr = self.compression_ratio(v_nodata, tbuffer, frame_out)
+        cr = self.compression_ratio(v_nodata, tbuffer, frame_out, N*DATA_WIDTH)
         print(cr)
 
         # ensure that the compressed data did not take more space than the
-        # decompressed data
-        self.assertTrue(cr >= 1)
+        # worst case compression ratio
+        wccr = self.worst_case_cr(v_nodata, tbuffer, N*DATA_WIDTH)
+        self.assertTrue(cr >= wccr)
         # ensure that the reported compression ratio does not exceed the theoretical
         # maximum
         self.assertTrue(cr <= DELTA_SLOTS)
