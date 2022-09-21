@@ -15,8 +15,6 @@ class TestCompressionModels(unittest.TestCase,TestUtils):
     def new_compression_ratio(self,frame_in,N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,INV,PRECISION,frame_length):
         '''
         Calculate the compression ratio for the new compression algorithm.
-        note, when calculating compression ratio we unset reg_count. This is
-        because
         '''
         # instantiate hardware
         dc = DeltaCompressor(N,DATA_WIDTH,DELTA_SLOTS,INV)
@@ -41,11 +39,7 @@ class TestCompressionModels(unittest.TestCase,TestUtils):
 
         # get the new compression ratio
         v_nodata = np.full((1, N), n_bit_nodata(DELTA_SLOTS, PRECISION, INV))
-        # XXX unsetting reg_count, bad?
-        # new compression ratio slightly worse than old if TB very shallow,
-        # and reg_count set, since counting the last_reg as uncompressed counts
-        # for relatively more in the compression ratio
-        return self.compression_ratio(v_nodata, tbuffer, frame_out, 1)
+        return self.compression_ratio(v_nodata, tbuffer, frame_out, N*DATA_WIDTH)
 
     def old_compression_ratio(self,frame_in,N,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,INV,PRECISION,frame_length):
         '''
@@ -86,7 +80,7 @@ class TestCompressionModels(unittest.TestCase,TestUtils):
 
         # get the new compression ratio
         v_nodata = np.full((1, N), n_bit_nodata(DELTA_SLOTS, PRECISION, INV))
-        return self.compression_ratio(v_nodata, tbuffer, frame_out, 0)
+        return self.compression_ratio(v_nodata, tbuffer, frame_out, N*DATA_WIDTH, correction=False)
 
     def comparison(self,TB_SIZE,DATA_WIDTH,DELTA_SLOTS,frame_length,p):
         PRECISION = int(DATA_WIDTH/DELTA_SLOTS)
@@ -127,7 +121,7 @@ class TestCompressionModels(unittest.TestCase,TestUtils):
     def test_paramteric_sweep(self):
         '''
         This test is based on the function from compression_test
-        Note that 16 out of 1080 subtests fail (~1.5%), i.e. the older algorithm
+        Note that 14 out of 1080 subtests fail (~1.5%), i.e. the older algorithm
         performs slightly better. All of these cases occur when either the
         tracebuffer is very small or the input frame is nearly incompressible.
         This is due to the fact that the new algorithm stores a single

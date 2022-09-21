@@ -93,20 +93,35 @@ class TestUtils():
                 return True
         return False
 
-    def compression_ratio(self, v_nodata, compressed, decompressed, reg_count=1):
+    def compression_ratio(self, v_nodata, compressed, decompressed, bits_per_vec, correction=True):
         '''
         given a compressed tracebuffer and the decompressed data compute the
         compression ratio. since the compressed tracebuffer may not be full we
         need to know what the no data vector is so that tracebuffer addresses
         with no data are not counted
         '''
-        # count uncompresseds value to account for any registers in the delta
-        # compression algorithm
-        full_addrs = reg_count
+        full_addrs = 0
         for i in range(compressed.shape[0]):
             if np.all(compressed[i] != v_nodata):
                 full_addrs = full_addrs + 1
+        full_addrs += full_addrs/bits_per_vec # correct for compression flag bits
+
+        # both the new and old models use compression flag bits, which we must
+        # correct for, however, only the new model uses a last vector register
+        if correction:
+            full_addrs += 1 # correct for uncompressed last vector register
 
         # ideal compression ratio is DELTA_SLOTS:1
         return decompressed.shape[0]/full_addrs
 
+    def worst_case_cr(self, v_nodata, compressed, bits_per_vec):
+        C = 0
+        for i in range(compressed.shape[0]):
+            if np.all(compressed[i] != v_nodata):
+                C += 1
+        if C == 0:
+            return 0
+        wccr = 1/(1+(1/bits_per_vec)+(1/C))
+        if wccr > 1.0:
+            raise ValueError
+        return wccr
