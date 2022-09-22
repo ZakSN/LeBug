@@ -50,22 +50,40 @@ clip_lengths = list(clip_lengths)
 # XXX remove these lines to get more output (takes longer to run)
 layers = [l for l in layers if ('dense' not in l) and ('input' not in l)]
 
-all_ready_done = get_all_ready_done(RESULTS_FILE)
+def build_proc_list(INPUT_TENSOR_DIR,
+                    RESULTS_FILE,
+                    layers,
+                    strides,
+                    clip_lengths,
+                    delta_slots,
+                    firmwares,
+                    N):
+    all_ready_done = get_all_ready_done(RESULTS_FILE)
 
-proc = []
-q = Queue()
+    proc = []
+    q = Queue()
 
-# setup all of our experiments
-for l in layers:
-    for s in strides:
-        for c in clip_lengths:
-            path = l+"_"+s+"_"+c+".npy"
-            stream = prepare_data_frames(np.load(os.path.join(INPUT_TENSOR_DIR, path)), N)
-            for d in delta_slots:
-                for f in firmwares:
-                    experimental_cfg = (l, s, c, d, f.__name__)
-                    if tuple(map(str, experimental_cfg)) not in all_ready_done:
-                        ce = CompressionExperiment()
-                        proc.append((ce.run_experiment, (stream, d, f, experimental_cfg, q)))
+    # setup all of our experiments
+    for l in layers:
+        for s in strides:
+            for c in clip_lengths:
+                path = l+"_"+s+"_"+c+".npy"
+                stream = prepare_data_frames(np.load(os.path.join(INPUT_TENSOR_DIR, path)), N)
+                for d in delta_slots:
+                    for f in firmwares:
+                        experimental_cfg = (l, s, c, d, f.__name__)
+                        if tuple(map(str, experimental_cfg)) not in all_ready_done:
+                            ce = CompressionExperiment()
+                            proc.append((ce.run_experiment, (stream, d, f, experimental_cfg, q)))
+    return proc, q
 
-multi_run(proc, RESULTS_FILE, q)
+if __name__ == "__main__":
+    proc, q = build_proc_list(INPUT_TENSOR_DIR,
+                              RESULTS_FILE,
+                              layers,
+                              strides,
+                              clip_lengths,
+                              delta_slots,
+                              firmwares,
+                              N)
+    multi_run(proc, RESULTS_FILE, q)

@@ -171,22 +171,31 @@ class CompressionExperiment():
     # use zlib to compress a trace of the delta compressor's input and compute
     # the cr achieved by zlib, level sets how hard zlib tries, 0=min, 9=max
     # extremely slow!
-    def calc_zlib_cr(self, dp_log, level=9):
+    def calc_zlib_cr(self, dp_log, level=9, logfile=None):
+        def cr(s):
+            s = s.tobytes()
+            ucl = len(s)
+            s = zlib.compress(s, level=9)
+            cl = len(s)
+            return ucl/cl
         stream = None
+        num_vec = 0
         for i in range(len(dp_log)):
             if dp_log[i][1] == 1:
+                num_vec += 1
                 if stream is None:
                     stream = dp_log[i][0]
                 else:
                     stream = np.vstack((stream, dp_log[i][0]))
-        stream = stream.tobytes()
-        ucl = len(stream)
-        stream = zlib.compress(stream, level=9)
-        cl = len(stream)
-        return ucl/cl
+                if logfile is not None:
+                    partial_cr = cr(stream)
+                    with open(logfile, 'a') as file:
+                        file.write(str(num_vec)+','+str(partial_cr))
+
+        return cr(stream)
 
     # missing total invalidity
-    def run_experiment(self, istream, D, firmware, experimental_cfg, q):
+    def run_experiment(self, istream, D, firmware, experimental_cfg, q, zlib=[None, None]):
         # configure the emulator
         self.emu_cfg['DELTA_SLOTS'] = D
         self.emu_cfg['PRECISION'] = int(self.emu_cfg['DATA_WIDTH']/self.emu_cfg['DELTA_SLOTS'])
@@ -241,7 +250,10 @@ class CompressionExperiment():
         pi = emu.dc.bi/emu.dc.ti
         po = (emu.dc.bo + emu.dc.pop_count(emu.dc.last_reg))/(emu.dc.to + (emu.N*emu.DATA_WIDTH))
 
-        zcr = self.calc_zlib_cr(log['dp'][:])
+        if zlib is not None:
+            zcr = self.calc_zlib_cr(log['dp'][:], level=zlib[0], logfile=zlib[1])
+        else:
+            zcr = -1
 
         q.put((*experimental_cfg, cr, pi, po, zcr))
 
@@ -259,7 +271,7 @@ def prepare_data_frames(layer_data, N, asint=False):
     return np.array(indata)
 
 # get all of the all ready completed configurations from the results file
-def get_all_ready_done(RESULTS_FILE, num_results=3):
+def get_all_ready_done(RESULTS_FILE, num_results=4):
     all_ready_done = []
     try:
         with open(RESULTS_FILE, newline='') as csvfile:
