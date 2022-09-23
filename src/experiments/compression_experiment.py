@@ -171,7 +171,10 @@ class CompressionExperiment():
     # use zlib to compress a trace of the delta compressor's input and compute
     # the cr achieved by zlib, level sets how hard zlib tries, 0=min, 9=max
     # extremely slow!
-    def calc_zlib_cr(self, dp_log, level=9, logfile=None):
+    # step sets how frequently zlib is run, by default we only run zlib every
+    # after every 100 vectors (running more frequently produces more data, but
+    # is much slower)
+    def calc_zlib_cr(self, dp_log, level=9, logfile=None, step=100):
         def cr(s):
             s = s.tobytes()
             ucl = len(s)
@@ -187,15 +190,15 @@ class CompressionExperiment():
                     stream = dp_log[i][0]
                 else:
                     stream = np.vstack((stream, dp_log[i][0]))
-                if logfile is not None:
+                if (logfile is not None) and (num_vec % step == 0):
                     partial_cr = cr(stream)
                     with open(logfile, 'a') as file:
-                        file.write(str(num_vec)+','+str(partial_cr))
+                        file.write(str(num_vec)+','+str(partial_cr)+'\n')
 
         return cr(stream)
 
     # missing total invalidity
-    def run_experiment(self, istream, D, firmware, experimental_cfg, q, zlib=[None, None]):
+    def run_experiment(self, istream, D, firmware, experimental_cfg, q, zlib=[None, None], early_stop=None):
         # configure the emulator
         self.emu_cfg['DELTA_SLOTS'] = D
         self.emu_cfg['PRECISION'] = int(self.emu_cfg['DATA_WIDTH']/self.emu_cfg['DELTA_SLOTS'])
@@ -212,6 +215,9 @@ class CompressionExperiment():
             eof1 = exp['eof1_cfg'][0]
             eof2 = exp['eof2_cfg'][0]
             while vidx < frame_stop:
+                if early_stop is not None:
+                    if emu.dc.num_vec >= early_stop:
+                        break
                 # fill the input buffer
                 for ibidx in range(self.emu_cfg['IB_DEPTH']):
                     emu.push([f[vidx][:], eof1, eof2])
@@ -304,7 +310,7 @@ def multi_run(proc, RESULTS_FILE, q):
                 running.remove(p)
                 finished = finished + 1
                 print("Finished "+str(finished)+" of "+str(total)+" experiments")
-        
+
         # periodically empty some results from the queue incase we crash mid run
         if q.qsize() >= int(total/10):
             with open(RESULTS_FILE, 'a') as file:

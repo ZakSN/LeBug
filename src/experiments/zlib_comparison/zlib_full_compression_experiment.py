@@ -3,14 +3,14 @@ import os
 import sys
 sys.path.insert(1, '../')
 from compression_experiment import multi_run
-experiment_root = '../compression_video'
+experiment_root = os.path.join('..','compression_video')
 sys.path.insert(1, experiment_root)
 os.chdir(experiment_root)
 import video_compression_experiment as vce
 
 # zlib compression does not vary with number of delta slots
 delta_slots = vce.delta_slots[0:1]
-RESULTS_FILE = "../zlib_comparison/zlib_video_compression_results.csv"
+RESULTS_FILE = os.path.join('..','zlib_comparison','zlib_video_compression_results.csv')
 
 bpl_args = (vce.INPUT_TENSOR_DIR,
             RESULTS_FILE,

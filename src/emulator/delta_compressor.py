@@ -33,6 +33,8 @@ class DeltaCompressor():
         self.to = 0 # total number of output bits
         self.pop_mask = ((2**self.DATA_WIDTH)-1)
 
+        self.num_vec = 0
+
     def pop_count(self, v):
         # pop_count algo from: https://stackoverflow.com/a/843846
         # adjusted to mask to bitwidth, to handle -ve 2's c numbers
@@ -57,6 +59,8 @@ class DeltaCompressor():
         # if the input is not valid bail out early
         if v_in_valid == 0:
             return v_out_valid, v_out_comp, v_out, inc_tb_ptr
+
+        self.num_vec += 1
 
         if self.measure_entropy:
             self.ti = self.ti + self.N*self.DATA_WIDTH
