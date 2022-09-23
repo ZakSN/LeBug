@@ -1,0 +1,6 @@
+__pycache__
+*.csv
+*.png
+*.rpt
+src/experiments/area_fmax/*_*_lebug
+examples/hw_test/rtl/
