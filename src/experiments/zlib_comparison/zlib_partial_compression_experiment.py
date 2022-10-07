@@ -36,5 +36,6 @@ if __name__ == '__main__':
         # only add this experiment if the corresponding results file does not
         # exist (i.e. this config has not been run)
         if not os.path.exists(rf):
-            new_proc_list.append((p[0], (*p[1], [9, rf], 20000)))
+            args = (*p[1], [9, rf], 10000)
+            new_proc_list.append((p[0], args))
     multi_run(new_proc_list, RESULTS_FILE, q)

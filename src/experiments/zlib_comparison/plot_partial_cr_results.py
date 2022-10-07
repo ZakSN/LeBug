@@ -19,12 +19,16 @@ for k in results:
     results[k] = results[k][0::100,:]
 '''
 
-for k in results:
-    plt.plot(*list(zip(*results[k])), label=k)
+markers = ['>', '+', '.', ',', 'o', 'v', 'x', 'X', 'D', '|']
+i = 0
 
-plt.xlim(0, 20000)
+for k in results:
+    #if ('spatial' not in k) and ('raw' not in k):
+    plt.semilogx(*list(zip(*results[k])), label=k, marker=markers[i%len(markers)])
+    i += 1
+
 plt.grid(visible=True, which='both')
 plt.xlabel("Number of Vectors")
 plt.ylabel("Zlib Compression Ratio")
-plt.legend()
-plt.show()
+plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+plt.savefig('zlib_iterative_compression.png', bbox_inches='tight')

@@ -174,7 +174,7 @@ class CompressionExperiment():
     # step sets how frequently zlib is run, by default we only run zlib every
     # after every 100 vectors (running more frequently produces more data, but
     # is much slower)
-    def calc_zlib_cr(self, dp_log, level=9, logfile=None, step=100):
+    def calc_zlib_cr(self, dp_log, level=9, logfile=None, step=1):
         def cr(s):
             s = s.tobytes()
             ucl = len(s)
