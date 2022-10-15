@@ -298,8 +298,10 @@ def multi_run(proc, RESULTS_FILE, q):
     finished = 0
     running = []
     while (len(proc) > 0) or (finished < total):
+        # determine the maximum number of CPUs (leaving one idle on multicore machines):
+        num_cpu = max(1, multiprocessing.cpu_count() - 1)
         # if less than the maximum number of threads are running, start some more
-        while (len(running) < multiprocessing.cpu_count() - 1) and (len(proc) > 0):
+        while (len(running) < num_cpu) and (len(proc) > 0):
             running.append(proc.pop())
             running[-1].start()
 
