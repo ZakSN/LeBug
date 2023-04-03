@@ -97,9 +97,7 @@ def plot_data_2d(r, l, p, name=None, invert=False):
             return pdiff
         else:
             return z
-    fig = plt.figure(figsize=(20, 20))
-    plt.rc('axes', labelsize=15)
-    plt.rc('axes', titlesize=15)
+    fig = plt.figure(figsize=(11, 9))
     data = np.zeros((3, 4, 4))
     for idx, dataset in enumerate([(by_1, "M=N"), (by_4, "M=N/4"), (by_16, "M=N/16"), (by_N, "M=1")]):
         for pt in dataset[0]:
@@ -108,9 +106,8 @@ def plot_data_2d(r, l, p, name=None, invert=False):
             data[x][y][idx] = pdiff
     min_z = np.nanmin(data)
     max_z = np.nanmax(data)
-    first = True
     for idx, dataset in enumerate([(by_1, "M=N"), (by_4, "M=N/4"), (by_16, "M=N/16"), (by_N, "M=1")]):
-        ax = fig.add_subplot(1, 4, idx+1)
+        ax = fig.add_subplot(2, 2, idx+1)
         for pt in dataset[0]:
             x,y,z = get_triple()
             pdiff = get_pdiff(y, idx, r, z, p)
@@ -139,9 +136,7 @@ def plot_data_2d(r, l, p, name=None, invert=False):
         ax.set_yticklabels([2, 4, 8])
         plt.gca().invert_yaxis()
         plt.gca().invert_xaxis()
-        if first:
-            plt.ylabel("D")
-            first = False
+        plt.ylabel("D")
     # uncomment for a supertitle -- takes too much space and is reproduced in
     # the caption
     #fig.suptitle(l, y=0.58)
@@ -152,5 +147,5 @@ def plot_data_2d(r, l, p, name=None, invert=False):
 plot_data_2d(0, "$F_{max}$ Percent Difference From LeBug-Head", True, name="fmax_percent_diff", invert=False)
 plot_data_2d(1, "Area Percent Difference From LeBug-Head", True, name="area_percent_diff", invert=True)
 
-plot_data_2d(0, "Frequency [MHz], for: ", False)
-plot_data_2d(1, "Area [# ALM], for: ", False)
+#plot_data_2d(0, "Frequency [MHz], for: ", False)
+#plot_data_2d(1, "Area [# ALM], for: ", False)
