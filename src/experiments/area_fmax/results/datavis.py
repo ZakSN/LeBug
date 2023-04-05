@@ -128,15 +128,16 @@ def plot_data_2d(r, l, p, name=None, invert=False):
         else:
             cmap = "Greys_r"
         ax.imshow(data[:, :, idx], cmap=cmap, vmin=min_z, vmax=max_z)
-        plt.title(dataset[1])
-        plt.xlabel("N")
+        plt.title(dataset[1], fontsize=15)
+        plt.xlabel("N", fontsize=15)
+        ax.tick_params(axis='both', which='major', labelsize=15)
         ax.set_xticks(np.arange(0, 4, 1))
         ax.set_xticklabels([16, 32, 64, 128])
         ax.set_yticks(np.arange(0, 3, 1))
         ax.set_yticklabels([2, 4, 8])
         plt.gca().invert_yaxis()
         plt.gca().invert_xaxis()
-        plt.ylabel("D")
+        plt.ylabel("D", fontsize=15)
     # uncomment for a supertitle -- takes too much space and is reproduced in
     # the caption
     #fig.suptitle(l, y=0.58)
